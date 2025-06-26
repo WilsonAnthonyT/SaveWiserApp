@@ -64,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
       // so that the display can reflect the updated values. If we changed
       // _counter without calling setState(), then the build method would not be
       // called again, and so nothing would appear to happen.
-      _counter += 2;
+      _counter += 3;
     });
   }
 
@@ -90,26 +90,25 @@ class _MyHomePageState extends State<MyHomePage> {
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
         child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-        const Text('You have pushed the button this many times:'),
-        Text(
-          '$_counter',
-          style: Theme.of(context).textTheme.headlineMedium,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SecondPage()),
+                );
+              },
+              child: const Text('Go to Second Page'),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        ElevatedButton(
-        onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const SecondPage()),
-        );
-      },
-      child: const Text('Go to Second Page'),
-    ),
-  ],
-      ),
-
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _incrementCounter,
