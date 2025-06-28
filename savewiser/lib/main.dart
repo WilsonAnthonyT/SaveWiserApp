@@ -1,3 +1,77 @@
+// File: lib/main.dart
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'setup_page.dart';
+import 'main_nav.dart';
+
+void main() {
+  runApp(SaveWiserApp());
+}
+
+class SaveWiserApp extends StatelessWidget {
+  const SaveWiserApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'SaveWiser',
+      theme: ThemeData(primarySwatch: Colors.green),
+      home: InitialScreenDecider(),
+    );
+  }
+}
+
+class InitialScreenDecider extends StatefulWidget {
+  const InitialScreenDecider({super.key});
+  @override
+  State<InitialScreenDecider> createState() => _InitialScreenDeciderState();
+}
+
+class _InitialScreenDeciderState extends State<InitialScreenDecider> {
+  bool? isSetupDone;
+
+  @override
+  void initState() {
+    super.initState();
+    checkSetupStatus();
+  }
+
+  Future<void> checkSetupStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('isSetupDone') ?? false;
+    setState(() {
+      isSetupDone = done;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isSetupDone == null) {
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return isSetupDone! ? MainNavigation() : SetupPage();
+  }
+}
+
+// import 'package:flutter/material.dart';
+// import 'package:savewiser/main_nav.dart';
+
+// void main() {
+//   runApp(const MyApp());
+// }
+
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return const MaterialApp(
+//       debugShowCheckedModeBanner: false,
+//       home: MainNavigation(),
+//     );
+//   }
+// }
+
 // import 'package:flutter/material.dart';
 // import 'package:savewiser/pages/home.dart';
 // import 'second_page.dart';
@@ -39,25 +113,6 @@
 //     );
 //   }
 // }
-
-import 'package:flutter/material.dart';
-import 'package:savewiser/main_nav.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: MainNavigation(),
-    );
-  }
-}
 
 // class MyHomePage extends StatefulWidget {
 //   const MyHomePage({super.key, required this.title});
