@@ -39,7 +39,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
     final prefs = await SharedPreferences.getInstance();
     final done = prefs.getBool('isSetupDone') ?? false;
     setState(() {
-      isSetupDone = done;
+      isSetupDone = false;
     });
   }
 
@@ -49,7 +49,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
       return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return isSetupDone! ? MainNavigation() : SetupPage();
+    return isSetupDone! ? MainNavigation() : SetupStep1();
   }
 }
 
