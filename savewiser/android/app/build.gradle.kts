@@ -9,7 +9,6 @@ android {
     ndkVersion = "29.0.13599879"
     namespace = "com.example.savewiser"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
