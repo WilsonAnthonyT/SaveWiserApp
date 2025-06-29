@@ -16,6 +16,7 @@ class SaveWiserApp extends StatelessWidget {
       title: 'SaveWiser',
       theme: ThemeData(primarySwatch: Colors.green),
       home: InitialScreenDecider(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

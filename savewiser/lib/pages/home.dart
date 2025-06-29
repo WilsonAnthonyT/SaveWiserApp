@@ -7,9 +7,9 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('SAVEWISER', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(icon: Icon(Icons.account_circle), onPressed: () {}),
-        ],
+        // actions: [
+        //   IconButton(icon: Icon(Icons.account_circle), onPressed: () {}),
+        // ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
