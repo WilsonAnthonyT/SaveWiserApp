@@ -93,6 +93,6 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
       return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return isSetupDone! ? MainNavigation() : SetupPage();
+    return isSetupDone! ? MainNavigation() : SetupStep1();
   }
 }
