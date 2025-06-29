@@ -50,7 +50,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
   String _filter = 'All';
 
   void _addTransaction() {
-    // TODO: implement navigation or dialog for adding a new transaction
+    // Maybe a feature we want to add?
   }
 
   @override
