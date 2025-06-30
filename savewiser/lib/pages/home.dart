@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -6,19 +7,29 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        centerTitle: true, // Center the title
         title: Text('SAVEWISER', style: TextStyle(fontWeight: FontWeight.bold)),
-        // actions: [
-        //   IconButton(icon: Icon(Icons.account_circle), onPressed: () {}),
-        // ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome Back Budi Untung (SW107788)',
-              style: TextStyle(fontSize: 16),
+            Center(
+              child: Container(
+                padding: EdgeInsets.all(16),
+                //margin: EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  'Welcome Back Budi Untung (SW107788)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
             SizedBox(height: 20),
             Container(
