@@ -1,8 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class _HomePageState extends State<HomePage> {
+  final _formKey = GlobalKey<FormState>();
+
+  String _name = "";
+
+  Future<void> InitShared() async {
+    final prefs = await SharedPreferences.getInstance();
+    _name = prefs.getString("name") ?? "";
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    InitShared();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +41,7 @@ class HomePage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: Text(
-                  'Welcome Back Budi Untung (SW107788)',
+                  'Welcome Back $_name (SW107788)',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
@@ -123,4 +139,10 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
+  @override
+  State<HomePage> createState() => _HomePageState();
 }
