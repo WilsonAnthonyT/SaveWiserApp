@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'terms_and_conditions.dart';
 import 'faq_pages.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -30,6 +35,9 @@ class _SettingsPageState extends State<SettingsPage> {
   // Controller for the search field
   TextEditingController searchController = TextEditingController();
 
+  bool _homeNotifications = true;
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -38,12 +46,41 @@ class _SettingsPageState extends State<SettingsPage> {
 
     // Listen to the search text changes
     searchController.addListener(_filterFaqs);
+
+    _loadPreferences();
   }
 
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _homeNotifications = prefs.getBool('homeNotifications') ?? true;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _updateNotificationPref(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _homeNotifications = value;
+    });
+    await prefs.setBool('homeNotifications', value);
+
+    // Optional: trigger or cancel a sample notification
+    if (value) {
+      //await _showNotification();
+    } else {
+      await _cancelNotification();
+    }
+  }
+
+  Future<void> _cancelNotification() async {
+    await flutterLocalNotificationsPlugin.cancel(1);
   }
 
   // Function to filter the FAQ list based on search query
@@ -88,6 +125,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 color: Colors.indigo[900],
               ),
             ),
+          ),
+
+          const SizedBox(height: 15),
+          _sectionCard(
+            title: "Notifications",
+            children: [
+              SwitchListTile(
+                title: const Text("Enable Home-screen Notifications"),
+                value: _homeNotifications,
+                onChanged: _isLoading ? null : _updateNotificationPref,
+              ),
+            ],
           ),
           const SizedBox(height: 30),
 

@@ -1,45 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
+
+// Your own files
 import 'setup_page.dart';
 import 'main_nav.dart';
-
-// Plugin instance (make sure it's initialized in main.dart)
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
+import 'services/notification_service.dart'; // 👈 Add this
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Request notification permission for Android 13+ (POST_NOTIFICATIONS)
   await _requestNotificationPermission();
-
-  // Create the notification channel for Android 8.0+
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'test_channel_id', // Channel ID
-    'Test Notifications', // Channel Name
-    description: 'This channel is used for test notifications',
-    importance: Importance.max,
-    playSound: true,
-  );
-
-  // Initialize plugin settings for Android
-  const AndroidInitializationSettings androidInitialization =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  final InitializationSettings initializationSettings = InitializationSettings(
-    android: androidInitialization,
-  );
-
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-  // Create the notification channel
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(channel);
+  await _initializeTimeZone();
+  await NotificationService().init(); // 👈 Use your new service
 
   runApp(SaveWiserApp());
 }
@@ -47,6 +23,17 @@ void main() async {
 Future<bool> _requestNotificationPermission() async {
   PermissionStatus status = await Permission.notification.request();
   return status.isGranted;
+}
+
+Future<void> _initializeTimeZone() async {
+  tz.initializeTimeZones();
+  try {
+    final String timeZone = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timeZone));
+  } catch (e) {
+    print("Timezone error: $e. Falling back to UTC.");
+    tz.setLocalLocation(tz.getLocation('UTC'));
+  }
 }
 
 class SaveWiserApp extends StatelessWidget {
@@ -57,7 +44,7 @@ class SaveWiserApp extends StatelessWidget {
     return MaterialApp(
       title: 'SaveWiser',
       theme: ThemeData(primarySwatch: Colors.green),
-      home: InitialScreenDecider(),
+      home: const InitialScreenDecider(),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -90,9 +77,8 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
   @override
   Widget build(BuildContext context) {
     if (isSetupDone == null) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    return isSetupDone! ? MainNavigation() : SetupStep1();
+    return isSetupDone! ? const MainNavigation() : const SetupStep1();
   }
 }
