@@ -4,34 +4,264 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'main_nav.dart';
 
-// class SetupPage extends StatelessWidget {
-//   const SetupPage({super.key});
+// File: lib/screens/setup_page.dart
+// ————————————— add this above your `class SetupStep1` —————————————
 
-//   Future<void> completeSetup(BuildContext context) async {
-//     final prefs = await SharedPreferences.getInstance();
-//     await prefs.setBool('isSetupDone', true);
+class SetupStep0 extends StatefulWidget {
+  const SetupStep0({Key? key}) : super(key: key);
+  @override
+  State<SetupStep0> createState() => _SetupStep0State();
+}
 
-//     if (!context.mounted) return;
+class _SetupStep0State extends State<SetupStep0> {
+  final _formKey = GlobalKey<FormState>();
 
-//     Navigator.pushReplacement(
-//       context,
-//       MaterialPageRoute(builder: (context) => MainNavigation()),
-//     );
-//   }
+  late TextEditingController _fullNameCtrl;
+  late TextEditingController _dobCtrl;
+  late TextEditingController _locationCtrl;
+  late TextEditingController _phoneCtrl;
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: Text('Welcome to SaveWiser')),
-//       body: Center(
-//         child: ElevatedButton(
-//           onPressed: () => completeSetup(context),
-//           child: Text('Complete Setup'),
-//         ),
-//       ),
-//     );
-//   }
-// }
+  DateTime? _selectedDob;
+  String _gender = 'Male';
+  final List<String> _genders = ['Male', 'Female', 'Other'];
+
+  @override
+  void initState() {
+    super.initState();
+    _fullNameCtrl = TextEditingController();
+    _dobCtrl = TextEditingController();
+    _locationCtrl = TextEditingController();
+    _phoneCtrl = TextEditingController();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final fullName = prefs.getString('name');
+    final dobIso = prefs.getString('dob');
+    final location = prefs.getString('location');
+    final phone = prefs.getString('phone');
+    final gender = prefs.getString('gender');
+
+    if (fullName != null) _fullNameCtrl.text = fullName;
+    if (dobIso != null) {
+      try {
+        _selectedDob = DateTime.parse(dobIso);
+        _dobCtrl.text =
+            '${_selectedDob!.day.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.month.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.year}';
+      } catch (_) {}
+    }
+    if (location != null) _locationCtrl.text = location;
+    if (phone != null) _phoneCtrl.text = phone;
+    if (gender != null && _genders.contains(gender)) {
+      _gender = gender;
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final initial = _selectedDob ?? DateTime(now.year - 20);
+    final dt = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: now,
+    );
+    if (dt != null) {
+      _selectedDob = dt;
+      _dobCtrl.text =
+          '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+      setState(() {});
+    }
+  }
+
+  Future<void> _goNext() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedDob == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your date of birth')),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('name', _fullNameCtrl.text.trim());
+    await prefs.setString('dob', _selectedDob!.toIso8601String());
+    await prefs.setString('location', _locationCtrl.text.trim());
+    await prefs.setString('phone', _phoneCtrl.text.trim());
+    await prefs.setString('gender', _gender);
+
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SetupStep1()));
+  }
+
+  @override
+  void dispose() {
+    _fullNameCtrl.dispose();
+    _dobCtrl.dispose();
+    _locationCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Setup Profile'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          color: Colors.grey.shade200,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Tell us about yourself',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Full Name
+                  TextFormField(
+                    controller: _fullNameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // DOB picker
+                  GestureDetector(
+                    onTap: _pickDob,
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        controller: _dobCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Location
+                  TextFormField(
+                    controller: _locationCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Location',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Phone
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Gender dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      value: _gender,
+                      items: _genders
+                          .map(
+                            (g) => DropdownMenuItem(value: g, child: Text(g)),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _gender = v!),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: _goNext,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 48,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text('Next →'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class SetupStep1 extends StatefulWidget {
   const SetupStep1({super.key});
@@ -62,6 +292,7 @@ class _SetupStep1State extends State<SetupStep1> {
   ];
   late List<String> _years;
   late String _selMonth, _selYear;
+  String _name = 'Budi';
 
   // calendar
   late DateTime _focusedDate, _selectedDate;
@@ -74,6 +305,10 @@ class _SetupStep1State extends State<SetupStep1> {
 
   Future<void> initShared() async {
     final prefs = await SharedPreferences.getInstance();
+
+    final rawName = prefs.getString("name") ?? '';
+    final parts = rawName.split(' ');
+    _name = parts.length > 1 ? parts.first : rawName;
 
     // load date
     final dateStr = prefs.getString('goalDate');
@@ -132,6 +367,13 @@ class _SetupStep1State extends State<SetupStep1> {
     initShared();
   }
 
+  Future<void> _persistSelections() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('goalDate', _selectedDate.toIso8601String());
+    await prefs.setString('purpose', _purpose);
+    await prefs.setString('amount', _amount);
+  }
+
   Future<void> _goNext() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -146,11 +388,7 @@ class _SetupStep1State extends State<SetupStep1> {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('goalDate', _selectedDate.toIso8601String());
-    await prefs.setString('purpose', _purpose);
-    await prefs.setString('amount', _amount);
-
+    _persistSelections();
     if (!mounted) return;
     Navigator.of(
       context,
@@ -165,303 +403,309 @@ class _SetupStep1State extends State<SetupStep1> {
         ? _months.sublist(currentMonth - 1)
         : _months;
 
-    return Scaffold(
-      // transparent appbar with SAVEWISER
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'SAVEWISER',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        await _persistSelections();
+      },
+      child: Scaffold(
+        // transparent appbar with SAVEWISER
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'SAVEWISER',
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person, color: Colors.blueAccent),
+              onPressed: () {},
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.blueAccent),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
 
-            // Card container
-            Card(
-              color: Colors.grey.shade200,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: const Text(
-                          "Budi’s Target",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+              // Card container
+              Card(
+                color: Colors.grey.shade200,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "$_name’s Target",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(32),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Reach Goal By',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Month/Year dropdowns
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(32),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      DropdownButton<String>(
+                                        underline: const SizedBox(),
+                                        value: _selMonth,
+                                        items: allowedMonths
+                                            .map(
+                                              (m) => DropdownMenuItem(
+                                                value: m,
+                                                child: Text(m),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (m) {
+                                          if (m == null) return;
+                                          final idx = _months.indexOf(m) + 1;
+                                          final y = int.parse(_selYear);
+                                          final origDay = _selectedDate.day;
+                                          final maxDay = daysInMonth(y, idx);
+                                          final newDay = origDay <= maxDay
+                                              ? origDay
+                                              : maxDay;
+                                          setState(() {
+                                            _selMonth = m;
+                                            _selectedDate = DateTime(
+                                              y,
+                                              idx,
+                                              newDay,
+                                            );
+                                            _focusedDate = _selectedDate;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(width: 16),
+                                      DropdownButton<String>(
+                                        underline: const SizedBox(),
+                                        value: _selYear,
+                                        items: _years
+                                            .map(
+                                              (y) => DropdownMenuItem(
+                                                value: y,
+                                                child: Text(y),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (y) {
+                                          if (y == null) return;
+                                          setState(() {
+                                            _selYear = y;
+                                            _focusedDate = DateTime(
+                                              int.parse(y),
+                                              _focusedDate.month,
+                                              _focusedDate.day,
+                                            );
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Calendar
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: Theme.of(context).colorScheme
+                                          .copyWith(primary: Colors.green),
+                                    ),
+                                    child: CalendarDatePicker(
+                                      key: ValueKey(
+                                        '${_focusedDate.year}-${_focusedDate.month}',
+                                      ),
+                                      initialDate: _focusedDate,
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime.now().add(
+                                        const Duration(days: 365 * 50),
+                                      ),
+                                      currentDate: _selectedDate,
+                                      onDateChanged: (dt) {
+                                        setState(() {
+                                          _selectedDate = dt;
+                                          _focusedDate = dt;
+                                          _selMonth = _months[dt.month - 1];
+                                          _selYear = dt.year.toString();
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
+
+                        const SizedBox(height: 24),
+
+                        // Purpose row
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(32),
+                          ),
+                          child: Row(
                             children: [
                               const Text(
-                                'Reach Goal By',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                                'I am saving for:',
+                                style: TextStyle(fontStyle: FontStyle.italic),
                               ),
-                              const SizedBox(height: 12),
-
-                              // Month/Year dropdowns
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(32),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    DropdownButton<String>(
-                                      underline: const SizedBox(),
-                                      value: _selMonth,
-                                      items: allowedMonths
-                                          .map(
-                                            (m) => DropdownMenuItem(
-                                              value: m,
-                                              child: Text(m),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (m) {
-                                        if (m == null) return;
-                                        final idx = _months.indexOf(m) + 1;
-                                        final y = int.parse(_selYear);
-                                        final origDay = _selectedDate.day;
-                                        final maxDay = daysInMonth(y, idx);
-                                        final newDay = origDay <= maxDay
-                                            ? origDay
-                                            : maxDay;
-                                        setState(() {
-                                          _selMonth = m;
-                                          _selectedDate = DateTime(
-                                            y,
-                                            idx,
-                                            newDay,
-                                          );
-                                          _focusedDate = _selectedDate;
-                                        });
-                                      },
-                                    ),
-                                    const SizedBox(width: 16),
-                                    DropdownButton<String>(
-                                      underline: const SizedBox(),
-                                      value: _selYear,
-                                      items: _years
-                                          .map(
-                                            (y) => DropdownMenuItem(
-                                              value: y,
-                                              child: Text(y),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (y) {
-                                        if (y == null) return;
-                                        setState(() {
-                                          _selYear = y;
-                                          _focusedDate = DateTime(
-                                            int.parse(y),
-                                            _focusedDate.month,
-                                            _focusedDate.day,
-                                          );
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Calendar
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Theme(
-                                  data: Theme.of(context).copyWith(
-                                    colorScheme: Theme.of(context).colorScheme
-                                        .copyWith(primary: Colors.green),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _purposeCtrl,
+                                  decoration: const InputDecoration.collapsed(
+                                    hintText: 'Tuition Fees',
                                   ),
-                                  child: CalendarDatePicker(
-                                    key: ValueKey(
-                                      '${_focusedDate.year}-${_focusedDate.month}',
-                                    ),
-                                    initialDate: _focusedDate,
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(
-                                      const Duration(days: 365 * 50),
-                                    ),
-                                    currentDate: _selectedDate,
-                                    onDateChanged: (dt) {
-                                      setState(() {
-                                        _selectedDate = dt;
-                                        _focusedDate = dt;
-                                        _selMonth = _months[dt.month - 1];
-                                        _selYear = dt.year.toString();
-                                      });
-                                    },
-                                  ),
+                                  onChanged: (v) => _purpose = v,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Purpose row
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              'I am saving for:',
-                              style: TextStyle(fontStyle: FontStyle.italic),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _purposeCtrl,
-                                decoration: const InputDecoration.collapsed(
-                                  hintText: 'Tuition Fees',
-                                ),
-                                onChanged: (v) => _purpose = v,
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'How much do you want to save?',
+                                style: TextStyle(fontStyle: FontStyle.italic),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'How much do you want to save?',
-                              style: TextStyle(fontStyle: FontStyle.italic),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                // Static currency label
-                                Text(
-                                  'Rp',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // The actual input field
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _amountCtrl,
-                                    keyboardType: TextInputType.number,
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  // Static currency label
+                                  Text(
+                                    'Rp',
                                     style: const TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.black,
+                                      color: Colors.green,
                                     ),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      border: InputBorder.none,
-                                      hintText: '20.000.000,00',
-                                      hintStyle: TextStyle(
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // The actual input field
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _amountCtrl,
+                                      keyboardType: TextInputType.number,
+                                      style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.grey,
+                                        color: Colors.black,
                                       ),
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        border: InputBorder.none,
+                                        hintText: '20.000.000,00',
+                                        hintStyle: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      onChanged: (v) => _amount = v,
                                     ),
-                                    onChanged: (v) => _amount = v,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Next button
+                        ElevatedButton(
+                          onPressed: _goNext,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Next button
-                      ElevatedButton(
-                        onPressed: _goNext,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 48,
+                              vertical: 12,
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 12,
-                          ),
+                          child: const Text('Next →'),
                         ),
-                        child: const Text('Next →'),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -514,11 +758,11 @@ class _SetupStep2State extends State<SetupStep2> {
     );
   }
 
-  Future<bool> _onWillPop() async {
-    // save before popping
-    await _persistSelections();
-    return true; // allow the pop
-  }
+  // Future<bool> _onWillPop() async {
+  //   // save before popping
+  //   await _persistSelections();
+  //   return true; // allow the pop
+  // }
 
   Future<void> _loadSavedSelections() async {
     final prefs = await SharedPreferences.getInstance();

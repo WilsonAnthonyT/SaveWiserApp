@@ -1,171 +1,244 @@
-import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
+import 'package:fl_chart/fl_chart.dart';
 
-import '../services/notification_service.dart'; // 👈 your service
+import 'api_service.dart'; // Contains your ApiService.fetchAdvice()
 
 class FutureStatisticsPage extends StatefulWidget {
-  const FutureStatisticsPage({super.key});
+  const FutureStatisticsPage({Key? key}) : super(key: key);
 
   @override
-  State<FutureStatisticsPage> createState() => _FutureStatisticsPageState();
+  _FutureStatisticsPageState createState() => _FutureStatisticsPageState();
 }
 
 class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
-  bool _homeNotifications = true;
-  TimeOfDay? _pickedTime;
-  Duration? _countdownDuration;
-  Timer? _countdownTimer;
+  Map<String, List<double>> _series = {
+    '2026': List.filled(12, 0),
+    '2027': List.filled(12, 0),
+    '2028': List.filled(12, 0),
+  };
+  String? _advice;
+  bool _loadingAdvice = false;
 
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
+    _loadGraphData();
+    _getAdvice();
   }
 
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadPreferences() async {
+  Future<void> _loadGraphData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _homeNotifications = prefs.getBool('homeNotifications') ?? true;
-    });
-  }
-
-  Future<void> _pickTime(BuildContext context) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (picked != null) {
-      setState(() => _pickedTime = picked);
-      final now = tz.TZDateTime.now(tz.local);
-      var next = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day,
-        picked.hour,
-        picked.minute,
-      );
-      if (next.isBefore(now)) next = next.add(const Duration(days: 1));
-      _startCountdown(next);
-    }
-  }
-
-  void _startCountdown(tz.TZDateTime targetTime) {
-    _countdownTimer?.cancel();
-    setState(() {
-      _countdownDuration = targetTime.difference(tz.TZDateTime.now(tz.local));
-    });
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final now = tz.TZDateTime.now(tz.local);
-      final remaining = targetTime.difference(now);
-      if (remaining.isNegative) {
-        timer.cancel();
-        setState(() => _countdownDuration = Duration.zero);
-      } else {
-        setState(() => _countdownDuration = remaining);
+    final raw = prefs.getString('graph_data');
+    if (raw != null) {
+      try {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        setState(() {
+          _series = decoded.map(
+            (year, list) => MapEntry(
+              year,
+              List<double>.from((list as List).map((e) => e.toDouble())),
+            ),
+          );
+        });
+      } catch (_) {
+        // handle parse error if needed
       }
-    });
+    }
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours.toString().padLeft(2, '0');
-    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-    return '$hours:$minutes:$seconds';
-  }
-
-  void _scheduleNotification() async {
-    if (!_homeNotifications || _pickedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pick time and enable notifications first'),
-        ),
-      );
-      return;
+  Future<void> _getAdvice() async {
+    setState(() => _loadingAdvice = true);
+    try {
+      final resp = await ApiService().fetchAdvice();
+      final data = jsonDecode(resp.body);
+      final content =
+          (data['choices'] as List).first['message']['content'] as String;
+      setState(() {
+        _advice = content.trim();
+      });
+    } catch (e) {
+      setState(() {
+        _advice = 'Error fetching advice';
+      });
+    } finally {
+      setState(() => _loadingAdvice = false);
     }
-
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      _pickedTime!.hour,
-      _pickedTime!.minute,
-    );
-
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    print('[DEBUG] Home notifications enabled: $_homeNotifications');
-    print('[DEBUG] Scheduling for: $scheduledDate');
-    print('[DEBUG] Now: ${tz.TZDateTime.now(tz.local)}');
-
-    await NotificationService().schedule(
-      id: 1,
-      title: "Reminder",
-      body: "Scheduled Notif bozo!",
-      scheduledDate: scheduledDate,
-      enabled: _homeNotifications,
-    );
-
-    _startCountdown(scheduledDate);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Notification scheduled at ${_pickedTime!.format(context)}',
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ElevatedButton(
-            onPressed: () => NotificationService().showNow(
-              id: 0,
-              title: 'Test Notification',
-              body: 'Triggered immediately!',
-              enabled: _homeNotifications,
-            ),
-            child: const Text('Test Notification'),
+    final months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'SAVEWISER',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.indigo[900],
           ),
-          ElevatedButton(
-            onPressed: () => _pickTime(context),
-            child: const Text('Pick Notification Time'),
-          ),
-          if (_pickedTime != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text('Picked Time: ${_pickedTime!.format(context)}'),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // --- Predicted Savings Card ---
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              color: Colors.grey[200],
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Predicted Savings',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: FlGridData(show: true),
+                          titlesData: FlTitlesData(
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 1,
+                                getTitlesWidget: (v, meta) {
+                                  final idx = v.toInt();
+                                  if (idx >= 0 && idx < months.length) {
+                                    return Text(
+                                      months[idx],
+                                      style: const TextStyle(fontSize: 10),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 5,
+                              ),
+                            ),
+                          ),
+                          minX: 0,
+                          maxX: 11,
+                          minY: 0,
+                          maxY:
+                              (_series.values
+                                          .expand((l) => l)
+                                          .fold<double>(
+                                            0,
+                                            (p, e) => e > p ? e : p,
+                                          ) +
+                                      10)
+                                  .ceilToDouble(),
+                          lineBarsData: _series.entries.map((entry) {
+                            final yearColor = {
+                              '2026': Colors.pink,
+                              '2027': Colors.deepPurple,
+                              '2028': Colors.green,
+                            }[entry.key]!;
+                            return LineChartBarData(
+                              spots: List.generate(
+                                entry.value.length,
+                                (i) => FlSpot(i.toDouble(), entry.value[i]),
+                              ),
+                              isCurved: true,
+                              dotData: FlDotData(show: false),
+                              color: yearColor,
+                              barWidth: 2,
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Placeholder text – replace with your calculated date
+                    const Text(
+                      "At your current pace, you'll reach your goal by October 18, 2026.",
+                      style: TextStyle(fontStyle: FontStyle.italic),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: _scheduleNotification,
-            child: const Text('Schedule Notification'),
-          ),
-          const SizedBox(height: 20),
-          if (_countdownDuration != null)
-            Text(
-              'Next notification in: ${_formatDuration(_countdownDuration!)}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+
+            const SizedBox(height: 24),
+
+            // --- Advice Card ---
+            SizedBox(
+              width: double.infinity,
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                color: Colors.grey[200],
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'What to do with your savings?',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_loadingAdvice)
+                        Center(
+                          child: SizedBox(
+                            width: 48, // pick whatever diameter you like
+                            height: 48,
+                            child: CircularProgressIndicator(strokeWidth: 4),
+                          ),
+                        )
+                      else
+                        Text(
+                          _advice ?? '',
+                          style: const TextStyle(fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
