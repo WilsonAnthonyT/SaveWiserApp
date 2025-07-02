@@ -165,14 +165,19 @@ class _SavingsPieChartState extends State<SavingsPieChart> {
                 return;
               }
 
+              // Safely access the index of the touched section
               final index =
                   pieTouchResponse!.touchedSection!.touchedSectionIndex;
-              final category = dataMap.keys.elementAt(index);
 
-              setState(() => touchedIndex = index);
-              widget.onSectionTapped(category);
+              // Check if the index is valid before accessing the data
+              if (index >= 0 && index < dataMap.length) {
+                final category = dataMap.keys.elementAt(index);
+                setState(() => touchedIndex = index);
+                widget.onSectionTapped(category);
+              }
             },
           ),
+
           sections: List.generate(dataMap.length, (index) {
             final category = dataMap.keys.elementAt(index);
             final value = dataMap[category]!;
