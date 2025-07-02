@@ -9,6 +9,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'setup_page.dart';
 import 'main_nav.dart';
 import 'services/notification_service.dart'; // 👈 Add this
+import 'services/notification_schedule.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,7 @@ void main() async {
   await _requestNotificationPermission();
   await _initializeTimeZone();
   await NotificationService().init(); // 👈 Use your new service
+  await scheduleDailySpendingNotification();
 
   runApp(SaveWiserApp());
 }
@@ -70,7 +72,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
     final prefs = await SharedPreferences.getInstance();
     final done = prefs.getBool('isSetupDone') ?? false;
     setState(() {
-      isSetupDone = done;
+      isSetupDone = false;
     });
   }
 

@@ -73,6 +73,7 @@ class NotificationService {
     bool enabled = true,
   }) async {
     if (!enabled) return;
+
     await _plugin.zonedSchedule(
       id,
       title,
@@ -87,7 +88,7 @@ class NotificationService {
           priority: Priority.high,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: repeatDaily ? DateTimeComponents.time : null,
     );
   }

@@ -564,23 +564,36 @@ class _SetupStep1State extends State<SetupStep1> {
                                       colorScheme: Theme.of(context).colorScheme
                                           .copyWith(primary: Colors.green),
                                     ),
-                                    child: CalendarDatePicker(
-                                      key: ValueKey(
-                                        '${_focusedDate.year}-${_focusedDate.month}',
-                                      ),
-                                      initialDate: _focusedDate,
-                                      firstDate: DateTime.now(),
-                                      lastDate: DateTime.now().add(
-                                        const Duration(days: 365 * 50),
-                                      ),
-                                      currentDate: _selectedDate,
-                                      onDateChanged: (dt) {
-                                        setState(() {
-                                          _selectedDate = dt;
-                                          _focusedDate = dt;
-                                          _selMonth = _months[dt.month - 1];
-                                          _selYear = dt.year.toString();
-                                        });
+                                    child: Builder(
+                                      builder: (context) {
+                                        // Calculate the firstDate dynamically based on the selected month
+                                        DateTime firstDate =
+                                            DateTime.now(); // First date is the current date, e.g., July 1st
+
+                                        DateTime effectiveInitialDate =
+                                            _focusedDate.isBefore(firstDate)
+                                            ? firstDate // If the focused date is earlier than today, set it to today
+                                            : _focusedDate;
+
+                                        return CalendarDatePicker(
+                                          key: ValueKey(
+                                            '${_focusedDate.year}-${_focusedDate.month}',
+                                          ),
+                                          initialDate: effectiveInitialDate,
+                                          firstDate: firstDate,
+                                          lastDate: DateTime.now().add(
+                                            const Duration(days: 365 * 50),
+                                          ),
+                                          currentDate: _selectedDate,
+                                          onDateChanged: (dt) {
+                                            setState(() {
+                                              _selectedDate = dt;
+                                              _focusedDate = dt;
+                                              _selMonth = _months[dt.month - 1];
+                                              _selYear = dt.year.toString();
+                                            });
+                                          },
+                                        );
                                       },
                                     ),
                                   ),

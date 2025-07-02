@@ -49,20 +49,32 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   }
 
   Future<void> _getAdvice() async {
+    if (!mounted) return;
+
     setState(() => _loadingAdvice = true);
+
     try {
       final resp = await ApiService().fetchAdvice();
+      print('Response status: ${resp.statusCode}');
+      print('Response body: ${resp.body}');
+
       final data = jsonDecode(resp.body);
       final content =
           (data['choices'] as List).first['message']['content'] as String;
+
+      if (!mounted) return;
       setState(() {
         _advice = content.trim();
       });
     } catch (e) {
+      print('Advice fetch error: $e');
+
+      if (!mounted) return;
       setState(() {
         _advice = 'Error fetching advice';
       });
     } finally {
+      if (!mounted) return;
       setState(() => _loadingAdvice = false);
     }
   }

@@ -3,6 +3,9 @@ import 'terms_and_conditions.dart';
 import 'faq_pages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../services/notification_service.dart';
+import '../services/notification_schedule.dart';
+import 'dart:async'; // for Timer
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -35,8 +38,22 @@ class _SettingsPageState extends State<SettingsPage> {
   // Controller for the search field
   TextEditingController searchController = TextEditingController();
 
+  // keys1
   bool _homeNotifications = true;
   bool _isLoading = true;
+  // keys2
+  int _alertHour = 8;
+  int _alertMinute = 0;
+  String _alertPeriod = 'AM';
+  final List<int> _hours = List.generate(12, (i) => i + 1);
+  final List<int> _minutes = List.generate(60, (i) => i);
+  final List<String> _periods = ['AM', 'PM'];
+  // keys3
+  bool _guardianEnabled = false;
+  final TextEditingController _guardianNameCtrl = TextEditingController();
+  final TextEditingController _guardianPhoneCtrl = TextEditingController();
+  String _approvalMethod = 'SMS';
+  int _autoLockPct = 10;
 
   @override
   void initState() {
@@ -47,7 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
     // Listen to the search text changes
     searchController.addListener(_filterFaqs);
 
-    _loadPreferences();
+    _loadPreferences(); // Start the countdown on init
   }
 
   @override
@@ -61,6 +78,16 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _homeNotifications = prefs.getBool('homeNotifications') ?? true;
       _isLoading = false;
+      //alarm
+      _alertHour = prefs.getInt('alertHour') ?? 8;
+      _alertMinute = prefs.getInt('alertMinute') ?? 0;
+      _alertPeriod = prefs.getString('alertPeriod') ?? 'AM';
+      //enable cpf
+      _autoLockPct = prefs.getInt('autoLockPct') ?? 10;
+      _guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
+      _guardianNameCtrl.text = prefs.getString('guardianName') ?? '';
+      _guardianPhoneCtrl.text = prefs.getString('guardianPhone') ?? '';
+      _approvalMethod = prefs.getString('approvalMethod') ?? 'SMS';
     });
   }
 
@@ -73,6 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     // Optional: trigger or cancel a sample notification
     if (value) {
+      await scheduleDailySpendingNotification();
       //await _showNotification();
     } else {
       await _cancelNotification();
@@ -80,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _cancelNotification() async {
-    await flutterLocalNotificationsPlugin.cancel(1);
+    await flutterLocalNotificationsPlugin.cancelAll();
   }
 
   // Function to filter the FAQ list based on search query
@@ -91,6 +119,25 @@ class _SettingsPageState extends State<SettingsPage> {
           .where((faq) => faq.toLowerCase().contains(query))
           .toList();
     });
+  }
+
+  //ALARM
+  Future<void> _saveAlertSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('alertHour', _alertHour);
+    await prefs.setInt('alertMinute', _alertMinute);
+    await prefs.setString('alertPeriod', _alertPeriod);
+    await scheduleDailySpendingNotification(); // Restart the countdown after saving
+  }
+
+  //cpf thing
+  Future<void> _enableGuardSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('guardianEnabled', _guardianEnabled);
+    await prefs.setString('guardianName', _guardianNameCtrl.text);
+    await prefs.setString('guardianPhone', _guardianPhoneCtrl.text);
+    await prefs.setString('approvalMethod', _approvalMethod);
+    await prefs.setInt('autoLockPct', _autoLockPct);
   }
 
   void _openFaq(BuildContext context, String title, String content) {
@@ -131,11 +178,163 @@ class _SettingsPageState extends State<SettingsPage> {
           _sectionCard(
             title: "Notifications",
             children: [
+              //ALARM================================================================
+              const Text(
+                'Daily Spending Alert Time',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  DropdownButton<int>(
+                    value: _alertHour,
+                    items: _hours
+                        .map(
+                          (h) => DropdownMenuItem(
+                            value: h,
+                            child: Text(h.toString().padLeft(2, '0')),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) async {
+                      if (v != null) {
+                        setState(() => _alertHour = v);
+                        await _saveAlertSettings();
+                      }
+                    },
+                  ),
+                  const Text(" : "),
+                  DropdownButton<int>(
+                    value: _alertMinute,
+                    items: _minutes
+                        .map(
+                          (m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(m.toString().padLeft(2, '0')),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) async {
+                      if (v != null) {
+                        setState(() => _alertMinute = v);
+                        await _saveAlertSettings();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButton<String>(
+                    value: _alertPeriod,
+                    items: _periods
+                        .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                        .toList(),
+                    onChanged: (v) async {
+                      if (v != null) {
+                        setState(() => _alertPeriod = v);
+                        await _saveAlertSettings();
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              //====ENABLE NOTIF=====================================
               SwitchListTile(
                 title: const Text("Enable Home-screen Notifications"),
                 value: _homeNotifications,
                 onChanged: _isLoading ? null : _updateNotificationPref,
               ),
+              ElevatedButton(
+                onPressed: _homeNotifications
+                    ? () async {
+                        await NotificationService().showNow(
+                          id: 101,
+                          title: 'Test Notification',
+                          body:
+                              'This is a test notification from SettingsPage.',
+                          enabled: _homeNotifications,
+                        );
+
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Test notification sent'),
+                          ),
+                        );
+                      }
+                    : null,
+                child: const Text('Send Test Notification'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+
+          //ENABLE GUARDIAN
+          _sectionCard(
+            title: "Guardian Control",
+            children: [
+              SwitchListTile(
+                title: const Text("Enable Guardian Control"),
+                value: _guardianEnabled,
+                onChanged: (value) async {
+                  setState(() => _guardianEnabled = value);
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('guardianEnabled', value);
+                },
+              ),
+              if (_guardianEnabled) ...[
+                TextField(
+                  controller: _guardianNameCtrl,
+                  decoration: const InputDecoration(labelText: "Guardian Name"),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _guardianPhoneCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Guardian Phone",
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 8),
+
+                // 🔐 Auto-lock Percentage Dropdown
+                DropdownButtonFormField<int>(
+                  value: _autoLockPct,
+                  items: [5, 10, 15, 20, 25, 30].map((pct) {
+                    return DropdownMenuItem(value: pct, child: Text('$pct%'));
+                  }).toList(),
+                  onChanged: (value) async {
+                    if (value == null) return;
+                    setState(() => _autoLockPct = value);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setInt('autoLockPct', value);
+                  },
+                  decoration: const InputDecoration(
+                    labelText: "Auto-lock Percentage",
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _approvalMethod,
+                  items: ['SMS', 'Email', 'App']
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method,
+                          child: Text(method),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (method) async {
+                    if (method == null) return;
+                    setState(() => _approvalMethod = method);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('approvalMethod', method);
+                  },
+                  decoration: const InputDecoration(
+                    labelText: "Approval Method",
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 30),
