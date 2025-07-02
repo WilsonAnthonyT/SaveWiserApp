@@ -499,13 +499,44 @@ class _SetupStep1State extends State<SetupStep1> {
                                               value: y, child: Text(y),
                                           )).toList(),
                                           onChanged: (y) {
-                                              if (y == null) return;
-                                              setState(() {
-                                              _selYear = y;
-                                              _focusedDate = DateTime(
-                                                  int.parse(y), _focusedDate.month, _focusedDate.day
+                                            if (y == null) return;
+                                            final newYear = int.parse(y);
+                                            final now    = DateTime.now();
+                                            // recompute which months are allowed in this year:
+                                            final allowedMonths = (newYear == now.year)
+                                              ? _months.sublist(now.month - 1)
+                                              : _months;
+                                            
+                                            String monthToUse = _selMonth;
+                                            int    dayToUse   = _selectedDate.day;
+                                            
+                                            // if the currently selected month is no longer allowed, pick the first allowed one
+                                            if (!allowedMonths.contains(_selMonth)) {
+                                              monthToUse = allowedMonths.first;
+                                              dayToUse   = 1; // or whatever default you prefer
+                                              // show a snack saying “January isn’t valid in 2025, defaulting to July”
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    '$_selMonth isn’t available for $newYear. '
+                                                    'Resetting to $monthToUse.'
+                                                  ),
+                                                ),
                                               );
+                                            }
+                                            else{
+                                              // now recompute the actual date safely
+                                              final monthIdx = _months.indexOf(monthToUse) + 1;
+                                              final maxDay   = daysInMonth(newYear, monthIdx);
+                                              final newDay   = dayToUse <= maxDay ? dayToUse : maxDay;
+                                              
+                                              setState(() {
+                                                _selYear      = y;
+                                                _selMonth     = monthToUse;
+                                                _selectedDate = DateTime(newYear, monthIdx, newDay);
+                                                _focusedDate  = _selectedDate;
                                               });
+                                            }
                                           },
                                           ),
                                       ],
