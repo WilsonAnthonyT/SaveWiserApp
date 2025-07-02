@@ -35,8 +35,11 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       try {
         final decoded = jsonDecode(raw) as Map<String, dynamic>;
         setState(() {
-          _series = decoded.map((year, list) =>
-            MapEntry(year, List<double>.from((list as List).map((e) => e.toDouble())))
+          _series = decoded.map(
+            (year, list) => MapEntry(
+              year,
+              List<double>.from((list as List).map((e) => e.toDouble())),
+            ),
           );
         });
       } catch (_) {
@@ -46,19 +49,32 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   }
 
   Future<void> _getAdvice() async {
+    if (!mounted) return;
+
     setState(() => _loadingAdvice = true);
+
     try {
       final resp = await ApiService().fetchAdvice();
+      print('Response status: ${resp.statusCode}');
+      print('Response body: ${resp.body}');
+
       final data = jsonDecode(resp.body);
-      final content = (data['choices'] as List).first['message']['content'] as String;
+      final content =
+          (data['choices'] as List).first['message']['content'] as String;
+
+      if (!mounted) return;
       setState(() {
         _advice = content.trim();
       });
     } catch (e) {
+      print('Advice fetch error: $e');
+
+      if (!mounted) return;
       setState(() {
         _advice = 'Error fetching advice';
       });
     } finally {
+      if (!mounted) return;
       setState(() => _loadingAdvice = false);
     }
   }
@@ -66,18 +82,29 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   @override
   Widget build(BuildContext context) {
     final months = [
-      'JAN','FEB','MAR','APR','MAY','JUN',
-      'JUL','AUG','SEP','OCT','NOV','DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('SAVEWISER',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo[900],
-              ),
+        title: Text(
+          'SAVEWISER',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.indigo[900],
+          ),
         ),
         centerTitle: true,
       ),
@@ -87,7 +114,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
           children: [
             // --- Predicted Savings Card ---
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               color: Colors.grey[200],
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -115,34 +144,45 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                                 getTitlesWidget: (v, meta) {
                                   final idx = v.toInt();
                                   if (idx >= 0 && idx < months.length) {
-                                    return Text(months[idx],
-                                        style: const TextStyle(fontSize: 10));
+                                    return Text(
+                                      months[idx],
+                                      style: const TextStyle(fontSize: 10),
+                                    );
                                   }
                                   return const SizedBox.shrink();
                                 },
                               ),
                             ),
                             leftTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: true, interval: 5),
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 5,
+                              ),
                             ),
                           ),
                           minX: 0,
                           maxX: 11,
                           minY: 0,
-                          maxY: (_series.values
-                                      .expand((l) => l)
-                                      .fold<double>(0, (p, e) => e > p ? e : p) +
-                                  10)
-                              .ceilToDouble(),
+                          maxY:
+                              (_series.values
+                                          .expand((l) => l)
+                                          .fold<double>(
+                                            0,
+                                            (p, e) => e > p ? e : p,
+                                          ) +
+                                      10)
+                                  .ceilToDouble(),
                           lineBarsData: _series.entries.map((entry) {
                             final yearColor = {
                               '2026': Colors.pink,
                               '2027': Colors.deepPurple,
-                              '2028': Colors.green
+                              '2028': Colors.green,
                             }[entry.key]!;
                             return LineChartBarData(
-                              spots: List.generate(entry.value.length,
-                                  (i) => FlSpot(i.toDouble(), entry.value[i])),
+                              spots: List.generate(
+                                entry.value.length,
+                                (i) => FlSpot(i.toDouble(), entry.value[i]),
+                              ),
                               isCurved: true,
                               dotData: FlDotData(show: false),
                               color: yearColor,
@@ -170,7 +210,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
             SizedBox(
               width: double.infinity,
               child: Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 color: Colors.grey[200],
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -190,11 +232,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                       if (_loadingAdvice)
                         Center(
                           child: SizedBox(
-                            width: 48,      // pick whatever diameter you like
+                            width: 48, // pick whatever diameter you like
                             height: 48,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 4,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 4),
                           ),
                         )
                       else
@@ -203,7 +243,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                           style: const TextStyle(fontSize: 16),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height:16),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
