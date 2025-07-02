@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_nav.dart';
-
+import 'services/notification_schedule.dart';
 // File: lib/screens/setup_page.dart
 // ————————————— add this above your `class SetupStep1` —————————————
 
@@ -1073,6 +1073,13 @@ class _SetupStep3State extends State<SetupStep3> {
     });
   }
 
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kAlertHour, _hour);
+    await prefs.setInt(_kAlertMinute, _minute);
+    await prefs.setString(_kAlertPeriod, _period);
+  }
+
   Future<void> _finishSetup() async {
     if (_guardianEnabled) {
       if (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().isEmpty) {
@@ -1187,7 +1194,12 @@ class _SetupStep3State extends State<SetupStep3> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (v) => setState(() => _hour = v!),
+                              onChanged: (v) {
+                                setState(() {
+                                  _hour = v!;
+                                  _savePreferences(); // Save when updated
+                                });
+                              },
                             ),
                             const Text(' : '),
                             // minute
@@ -1201,7 +1213,12 @@ class _SetupStep3State extends State<SetupStep3> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (v) => setState(() => _minute = v!),
+                              onChanged: (v) {
+                                setState(() {
+                                  _minute = v!;
+                                  _savePreferences(); // Save when updated
+                                });
+                              },
                             ),
                             const SizedBox(width: 12),
                             // AM/PM
@@ -1215,7 +1232,12 @@ class _SetupStep3State extends State<SetupStep3> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (v) => setState(() => _period = v!),
+                              onChanged: (v) {
+                                setState(() {
+                                  _period = v!;
+                                  _savePreferences(); // Save when updated
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -1375,7 +1397,13 @@ class _SetupStep3State extends State<SetupStep3> {
                   const SizedBox(height: 32),
                   Center(
                     child: ElevatedButton(
-                      onPressed: _finishSetup,
+                      onPressed: () async {
+                        // Call the method to schedule the notification when the setup is finished
+                        await scheduleDailySpendingNotification();
+
+                        // Call the method to finish the setup
+                        await _finishSetup(); // Ensure _finishSetup() is called after scheduling notification
+                      },
                       style: ElevatedButton.styleFrom(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(24),
