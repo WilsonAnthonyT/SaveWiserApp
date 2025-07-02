@@ -52,6 +52,7 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       appBar: AppBar(
         title: (Text(_getAppBarTitle(_selectedIndex))),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(Icons.account_circle),

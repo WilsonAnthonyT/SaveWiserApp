@@ -1,7 +1,6 @@
 // File: lib/screens/setup_page.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'main_nav.dart';
 
 // File: lib/screens/setup_page.dart
@@ -537,14 +536,58 @@ class _SetupStep1State extends State<SetupStep1> {
                                             .toList(),
                                         onChanged: (y) {
                                           if (y == null) return;
-                                          setState(() {
-                                            _selYear = y;
-                                            _focusedDate = DateTime(
-                                              int.parse(y),
-                                              _focusedDate.month,
-                                              _focusedDate.day,
+                                          final newYear = int.parse(y);
+                                          final now = DateTime.now();
+                                          // recompute which months are allowed in this year:
+                                          final allowedMonths =
+                                              (newYear == now.year)
+                                              ? _months.sublist(now.month - 1)
+                                              : _months;
+
+                                          String monthToUse = _selMonth;
+                                          int dayToUse = _selectedDate.day;
+
+                                          // if the currently selected month is no longer allowed, pick the first allowed one
+                                          if (!allowedMonths.contains(
+                                            _selMonth,
+                                          )) {
+                                            monthToUse = allowedMonths.first;
+                                            dayToUse =
+                                                1; // or whatever default you prefer
+                                            // show a snack saying “January isn’t valid in 2025, defaulting to July”
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  '$_selMonth isn’t available for $newYear. '
+                                                  'Resetting to $monthToUse.',
+                                                ),
+                                              ),
                                             );
-                                          });
+                                          } else {
+                                            // now recompute the actual date safely
+                                            final monthIdx =
+                                                _months.indexOf(monthToUse) + 1;
+                                            final maxDay = daysInMonth(
+                                              newYear,
+                                              monthIdx,
+                                            );
+                                            final newDay = dayToUse <= maxDay
+                                                ? dayToUse
+                                                : maxDay;
+
+                                            setState(() {
+                                              _selYear = y;
+                                              _selMonth = monthToUse;
+                                              _selectedDate = DateTime(
+                                                newYear,
+                                                monthIdx,
+                                                newDay,
+                                              );
+                                              _focusedDate = _selectedDate;
+                                            });
+                                          }
                                         },
                                       ),
                                     ],
@@ -564,36 +607,23 @@ class _SetupStep1State extends State<SetupStep1> {
                                       colorScheme: Theme.of(context).colorScheme
                                           .copyWith(primary: Colors.green),
                                     ),
-                                    child: Builder(
-                                      builder: (context) {
-                                        // Calculate the firstDate dynamically based on the selected month
-                                        DateTime firstDate =
-                                            DateTime.now(); // First date is the current date, e.g., July 1st
-
-                                        DateTime effectiveInitialDate =
-                                            _focusedDate.isBefore(firstDate)
-                                            ? firstDate // If the focused date is earlier than today, set it to today
-                                            : _focusedDate;
-
-                                        return CalendarDatePicker(
-                                          key: ValueKey(
-                                            '${_focusedDate.year}-${_focusedDate.month}',
-                                          ),
-                                          initialDate: effectiveInitialDate,
-                                          firstDate: firstDate,
-                                          lastDate: DateTime.now().add(
-                                            const Duration(days: 365 * 50),
-                                          ),
-                                          currentDate: _selectedDate,
-                                          onDateChanged: (dt) {
-                                            setState(() {
-                                              _selectedDate = dt;
-                                              _focusedDate = dt;
-                                              _selMonth = _months[dt.month - 1];
-                                              _selYear = dt.year.toString();
-                                            });
-                                          },
-                                        );
+                                    child: CalendarDatePicker(
+                                      key: ValueKey(
+                                        '${_focusedDate.year}-${_focusedDate.month}',
+                                      ),
+                                      initialDate: _focusedDate,
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime.now().add(
+                                        const Duration(days: 365 * 50),
+                                      ),
+                                      currentDate: _selectedDate,
+                                      onDateChanged: (dt) {
+                                        setState(() {
+                                          _selectedDate = dt;
+                                          _focusedDate = dt;
+                                          _selMonth = _months[dt.month - 1];
+                                          _selYear = dt.year.toString();
+                                        });
                                       },
                                     ),
                                   ),
@@ -771,11 +801,11 @@ class _SetupStep2State extends State<SetupStep2> {
     );
   }
 
-  // Future<bool> _onWillPop() async {
-  //   // save before popping
-  //   await _persistSelections();
-  //   return true; // allow the pop
-  // }
+  Future<bool> _onWillPop() async {
+    // save before popping
+    await _persistSelections();
+    return true; // allow the pop
+  }
 
   Future<void> _loadSavedSelections() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1008,33 +1038,6 @@ class _SetupStep3State extends State<SetupStep3> {
   final _periods = ['AM', 'PM'];
   final _lockPcts = [5, 10, 15, 20, 25, 30];
   final _approvalMethods = ['SMS', 'Email', 'App'];
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  Future<void> _triggerNotification() async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'home_notifications_channel',
-          'Home Notifications',
-          //description: 'Notifications for home screen alerts.',
-          importance: Importance.high,
-          priority: Priority.high,
-        );
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await flutterLocalNotificationsPlugin.show(
-      0, // Notification ID
-      'Home Notification Enabled', // Title
-      'You will receive notifications on your home screen', // Body
-      platformDetails,
-    );
-  }
-
-  Future<void> _cancelNotification() async {
-    await flutterLocalNotificationsPlugin.cancel(0); // Cancel the notification
-  }
 
   @override
   void initState() {
@@ -1243,21 +1246,8 @@ class _SetupStep3State extends State<SetupStep3> {
                         Switch(
                           value: _homeNotifications,
                           activeColor: Colors.green, // ← make thumb green
-                          onChanged: (value) async {
-                            setState(() {
-                              _homeNotifications = value;
-                            });
-
-                            // Save preference
-                            await _persistStep3Prefs();
-
-                            // Trigger notification or cancel based on the switch state
-                            if (_homeNotifications) {
-                              await _triggerNotification();
-                            } else {
-                              await _cancelNotification();
-                            }
-                          },
+                          onChanged: (v) =>
+                              setState(() => _homeNotifications = v),
                         ),
                       ],
                     ),
