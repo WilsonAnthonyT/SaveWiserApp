@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'spending_tracker.dart';
 
 class CurrentSavingsPage extends StatefulWidget {
   const CurrentSavingsPage({super.key});
@@ -101,6 +102,17 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
               ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SpendingTrackerPage()),
+          );
+        },
+        backgroundColor: Colors.indigo[900],
+        child: const Icon(Icons.add),
+        tooltip: 'Add Transaction',
       ),
     );
   }

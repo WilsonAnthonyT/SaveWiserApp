@@ -11,13 +11,25 @@ import 'main_nav.dart';
 import 'services/notification_service.dart'; // 👈 Add this
 import 'services/notification_schedule.dart';
 
+//hives
+import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart';
+import 'models/transaction.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  //notif initi
   await _requestNotificationPermission();
   await _initializeTimeZone();
   await NotificationService().init(); // 👈 Use your new service
   await scheduleDailySpendingNotification();
+
+  //transactions init
+  final dir = await getApplicationDocumentsDirectory();
+  Hive.init(dir.path);
+  Hive.registerAdapter(TransactionAdapter());
+  await Hive.openBox<Transaction>('transactions');
 
   runApp(SaveWiserApp());
 }
@@ -72,7 +84,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
     final prefs = await SharedPreferences.getInstance();
     final done = prefs.getBool('isSetupDone') ?? false;
     setState(() {
-      isSetupDone = false;
+      isSetupDone = done; // ✅ Use the value from SharedPreferences
     });
   }
 
@@ -82,7 +94,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return isSetupDone! ? MainNavigation() : SetupStep0();
+    return isSetupDone! ? MainNavigation(initialIndex: 2) : SetupStep0();
   }
 }
 

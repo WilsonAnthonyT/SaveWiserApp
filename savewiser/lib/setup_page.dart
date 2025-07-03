@@ -1099,7 +1099,7 @@ class _SetupStep3State extends State<SetupStep3> {
     await prefs.setBool('isSetupDone', true);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigation()),
+      MaterialPageRoute(builder: (_) => const MainNavigation(initialIndex: 2)),
     );
   }
 
