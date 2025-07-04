@@ -1,115 +1,220 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:savewiser/pages/profile_page.dart';
-import 'package:savewiser/main_nav.dart';
+import '../models/transaction.dart';
+import 'transaction_list.dart';
+import 'spending_tracker.dart';
 
-class CurrentSavingsPage extends StatelessWidget {
+class CurrentSavingsPage extends StatefulWidget {
   const CurrentSavingsPage({super.key});
 
-  static final List<Map<String, dynamic>> transactions = [
-    {
-      "description": "Electricity Bill",
-      "amount": -50000,
-      "category": "Needs",
-      "date": DateTime(2023, 1, 4),
-    },
-    {
-      "description": "Pizza",
-      "amount": -18000,
-      "category": "Wants",
-      "date": DateTime(2023, 1, 4),
-    },
-    {
-      "description": "Salary",
-      "amount": 6000000,
-      "category": "Income",
-      "date": DateTime(2023, 1, 2),
-    },
-    {
-      "description": "Lunch at work",
-      "amount": -20000,
-      "category": "Needs",
-      "date": DateTime(2023, 1, 2),
-    },
-    {
-      "description": "Petrol",
-      "amount": -30000,
-      "category": "Needs",
-      "date": DateTime(2023, 1, 1),
-    },
-    {
-      "description": "Vacation Fund",
-      "amount": -100000,
-      "category": "Savings",
-      "date": DateTime(2023, 1, 5),
-    },
-  ];
+  @override
+  State<CurrentSavingsPage> createState() => _CurrentSavingsPageState();
+}
+
+class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
+  late Box<Transaction> _box;
+  late List<Map<String, int>> _recentMonths;
+  late Map<String, int> _selectedMonthYear;
+
+  @override
+  void initState() {
+    super.initState();
+    _box = Hive.box<Transaction>('transactions');
+    _recentMonths = _getRecentMonths(_box.values.toList());
+    _selectedMonthYear = _recentMonths.isNotEmpty
+        ? _recentMonths.first
+        : {'year': DateTime.now().year, 'month': DateTime.now().month};
+  }
+
+  List<Map<String, int>> _getRecentMonths(List<Transaction> transactions) {
+    final Set<String> uniqueExpenseKeys = {};
+
+    for (var tx in transactions) {
+      if (tx.transactionType == 'Expense') {
+        final key = '${tx.year}-${tx.month.toString().padLeft(2, '0')}';
+        uniqueExpenseKeys.add(key);
+      }
+    }
+
+    final List<Map<String, int>> uniqueMonths = uniqueExpenseKeys.map((key) {
+      final parts = key.split('-');
+      return {'year': int.parse(parts[0]), 'month': int.parse(parts[1])};
+    }).toList();
+
+    uniqueMonths.sort((a, b) {
+      final aDate = DateTime(a['year']!, a['month']!);
+      final bDate = DateTime(b['year']!, b['month']!);
+      return bDate.compareTo(aDate);
+    });
+
+    return uniqueMonths.take(5).toList();
+  }
+
+  String _formatMonthYear(Map<String, int> map) {
+    final date = DateTime(map['year']!, map['month']!);
+    return DateFormat('MMMM yyyy').format(date);
+  }
+
+  double _calculateBalance(List<Transaction> transactions) {
+    return transactions.fold(0.0, (sum, tx) => sum + tx.amount);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Text(
-              'SAVEWISER',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo[900],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
+    return Scaffold(
+      body: ValueListenableBuilder(
+        valueListenable: _box.listenable(),
+        builder: (context, Box<Transaction> box, _) {
+          final allTransactions = box.values.toList();
+          final filteredTransactions = allTransactions.where((tx) {
+            return tx.month == _selectedMonthYear['month'] &&
+                tx.year == _selectedMonthYear['year'];
+          }).toList();
+
+          final balance = _calculateBalance(allTransactions);
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(32),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "January 2023",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
+                Center(
+                  child: Text(
+                    'SAVEWISER',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo[900],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                SavingsPieChart(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            TransactionListPage(transactions: transactions),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Balance: ${balance.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: balance >= 0 ? Colors.green : Colors.red,
+                          ),
+                        ),
                       ),
-                    );
-                  },
+
+                      DropdownButton<Map<String, int>>(
+                        value: _selectedMonthYear,
+                        isExpanded: true,
+                        items: _recentMonths.map((monthMap) {
+                          return DropdownMenuItem(
+                            value: monthMap,
+                            child: Text(
+                              _formatMonthYear(monthMap),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedMonthYear = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      SavingsPieChart(
+                        transactions: filteredTransactions,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TransactionListPage(
+                                transactions: filteredTransactions.map((tx) {
+                                  return {
+                                    "description": tx.description ?? '',
+                                    "amount": tx.amount,
+                                    "category": tx.category,
+                                    "date": DateTime(
+                                      tx.year,
+                                      tx.month,
+                                      tx.date!,
+                                    ),
+                                  };
+                                }).toList(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SpendingTrackerPage()),
+          );
+        },
+        // backgroundColor: const Color.fromARGB(255, 255, 178, 250),
+        child: const Icon(Icons.add),
+        tooltip: 'Add Transaction',
       ),
     );
   }
 }
 
 class SavingsPieChart extends StatelessWidget {
+  final List<Transaction> transactions;
   final VoidCallback onTap;
 
-  const SavingsPieChart({required this.onTap, super.key});
+  const SavingsPieChart({
+    super.key,
+    required this.transactions,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dataMap = {"Needs": 45.0, "Wants": 25.0, "Savings": 30.0};
+    final Map<String, double> categoryTotals = {
+      "Needs": 0.0,
+      "Wants": 0.0,
+      "Savings": 0.0,
+    };
+
+    for (final tx in transactions) {
+      if (tx.transactionType != 'Expense') continue;
+
+      if (categoryTotals.containsKey(tx.category)) {
+        categoryTotals[tx.category] =
+            (categoryTotals[tx.category] ?? 0) + tx.amount.abs();
+      }
+    }
+
+    final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
+    if (total == 0) {
+      return const Center(child: Text("No expense data available"));
+    }
+
     final colors = [Colors.blue, Colors.red.shade700, Colors.green.shade700];
 
     return GestureDetector(
@@ -121,13 +226,15 @@ class SavingsPieChart extends StatelessWidget {
             sectionsSpace: 4,
             centerSpaceRadius: 0,
             pieTouchData: PieTouchData(enabled: false),
-            sections: List.generate(dataMap.length, (index) {
-              final category = dataMap.keys.elementAt(index);
-              final value = dataMap[category]!;
+            sections: List.generate(categoryTotals.length, (index) {
+              final category = categoryTotals.keys.elementAt(index);
+              final value = categoryTotals[category]!;
+              final percentage = (value / total) * 100;
+
               return PieChartSectionData(
                 color: colors[index],
                 value: value,
-                title: "${value.toStringAsFixed(1)}%",
+                title: "${percentage.toStringAsFixed(1)}%",
                 radius: 100,
                 titleStyle: const TextStyle(
                   fontSize: 18,
@@ -138,233 +245,6 @@ class SavingsPieChart extends StatelessWidget {
             }),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class TransactionListPage extends StatefulWidget {
-  final List<Map<String, dynamic>> transactions;
-
-  const TransactionListPage({super.key, required this.transactions});
-
-  @override
-  State<TransactionListPage> createState() => _TransactionListPageState();
-}
-
-class _TransactionListPageState extends State<TransactionListPage> {
-  String searchQuery = '';
-  String selectedCategory = 'All';
-  String sortBy = 'Date';
-
-  List<Map<String, dynamic>> get filtered {
-    List<Map<String, dynamic>> txs = widget.transactions;
-
-    if (selectedCategory != 'All') {
-      txs = txs.where((tx) => tx['category'] == selectedCategory).toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      txs = txs
-          .where(
-            (tx) => tx['description'].toLowerCase().contains(
-              searchQuery.toLowerCase(),
-            ),
-          )
-          .toList();
-    }
-
-    txs.sort((a, b) {
-      if (sortBy == 'Date') {
-        return b['date'].compareTo(a['date']);
-      } else {
-        return b['amount'].abs().compareTo(a['amount'].abs());
-      }
-    });
-
-    return txs;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Map<String, List<Map<String, dynamic>>> grouped = {};
-    for (var tx in filtered) {
-      final date = DateFormat.yMMMMd().format(tx['date']);
-      grouped.putIfAbsent(date, () => []).add(tx);
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-                const Text(
-                  'SAVEWISER',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A237E), // same as Colors.indigo[900]
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search transactions...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    onChanged: (value) => setState(() => searchQuery = value),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      DropdownButton<String>(
-                        value: sortBy,
-                        onChanged: (val) => setState(() => sortBy = val!),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Date',
-                            child: Text('Sort by Date'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Value',
-                            child: Text('Sort by Value'),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      DropdownButton<String>(
-                        value: selectedCategory,
-                        onChanged: (val) =>
-                            setState(() => selectedCategory = val!),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'All',
-                            child: Text('Show All'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Needs',
-                            child: Text('Needs'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Wants',
-                            child: Text('Wants'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Income',
-                            child: Text('Income'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Savings',
-                            child: Text('Savings'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  ...grouped.entries.expand((entry) {
-                    final dateLabel = Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                    final txWidgets = entry.value.map(
-                      (tx) => ListTile(
-                        leading: const Icon(Icons.monetization_on),
-                        title: Text(tx["description"]),
-                        subtitle: Text(tx["category"]),
-                        trailing: Text(
-                          "${tx["amount"] >= 0 ? "+" : "-"}\$${(tx["amount"].abs() / 1000).toStringAsFixed(1)}k",
-                          style: TextStyle(
-                            color: tx["amount"] >= 0
-                                ? Colors.green
-                                : Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    );
-                    return [dateLabel, ...txWidgets];
-                  }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 1, // Fixed index for "Savings"
-        selectedItemColor: Colors.blue,
-        onTap: (index) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainNavigation()),
-          );
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Future Statistics',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.info), label: 'Savings'),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Plannings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
       ),
     );
   }

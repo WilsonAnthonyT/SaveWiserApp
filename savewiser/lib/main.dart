@@ -35,6 +35,7 @@ void main() async {
   final dir = await getApplicationDocumentsDirectory();
   Hive.init(dir.path);
   Hive.registerAdapter(TransactionAdapter());
+  await Hive.deleteBoxFromDisk('transactions');
   await Hive.openBox<Transaction>('transactions');
 
   runApp(SaveWiserApp());
