@@ -90,7 +90,7 @@ class _InitialScreenDeciderState extends State<InitialScreenDecider> {
     final prefs = await SharedPreferences.getInstance();
     final done = prefs.getBool('isSetupDone') ?? false;
     setState(() {
-      isSetupDone = false; // ✅ Use the value from SharedPreferences
+      isSetupDone = done; // ✅ Use the value from SharedPreferences
     });
   }
 
