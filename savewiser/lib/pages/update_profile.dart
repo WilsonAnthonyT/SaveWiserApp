@@ -16,7 +16,12 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
   late TextEditingController _locationCtrl;
   late TextEditingController _phoneCtrl;
 
+  late TextEditingController _goalDateCtrl;
+  late TextEditingController _savingCtrl;
+  late TextEditingController _targetCtrl;
+
   DateTime? _selectedDob;
+  DateTime? _goalDate;
   String _gender = 'Male';
   final List<String> _genders = ['Male', 'Female', 'Other'];
 
@@ -27,6 +32,10 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     _dobCtrl = TextEditingController();
     _locationCtrl = TextEditingController();
     _phoneCtrl = TextEditingController();
+
+    _goalDateCtrl = TextEditingController();
+    _savingCtrl = TextEditingController();
+    _targetCtrl = TextEditingController();
     _loadProfile();
   }
 
@@ -37,6 +46,9 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     final location = prefs.getString('location');
     final phone = prefs.getString('phone');
     final gender = prefs.getString('gender');
+    final goalDateIso = prefs.getString('goalDate');
+    final saving = prefs.getString('amount');
+    final target = prefs.getString('purpose');
 
     if (fullName != null) _fullNameCtrl.text = fullName;
     if (dobIso != null) {
@@ -53,6 +65,17 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     if (gender != null && _genders.contains(gender)) {
       _gender = gender;
     }
+    if (goalDateIso != null) {
+      try {
+        _goalDate = DateTime.parse(goalDateIso);
+        _goalDateCtrl.text =
+            '${_goalDate!.day.toString().padLeft(2, '0')}/'
+            '${_goalDate!.month.toString().padLeft(2, '0')}/'
+            '${_goalDate!.year}';
+      } catch (_) {}
+    }
+    if (saving != null) _savingCtrl.text = saving;
+    if (target != null) _targetCtrl.text = target;
 
     setState(() {});
   }
@@ -69,6 +92,25 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     if (dt != null) {
       _selectedDob = dt;
       _dobCtrl.text =
+          '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+      setState(() {});
+    }
+  }
+
+  Future<void> _pickGoalDate() async {
+    final now = DateTime.now();
+    final initial = _goalDate ?? now;
+    final dt = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: DateTime(now.year + 10),
+    );
+    if (dt != null) {
+      _goalDate = dt;
+      _goalDateCtrl.text =
           '${dt.day.toString().padLeft(2, '0')}/'
           '${dt.month.toString().padLeft(2, '0')}/'
           '${dt.year}';
@@ -93,6 +135,10 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     await prefs.setString('phone', _phoneCtrl.text.trim());
     await prefs.setString('gender', _gender);
 
+    await prefs.setString('goalDate', _goalDate!.toIso8601String());
+    await prefs.setString('amount', _savingCtrl.text.trim());
+    await prefs.setString('purpose', _targetCtrl.text.trim());
+
     if (!mounted) return;
     Navigator.pop(context); // 👈 Return to previous screen
   }
@@ -103,6 +149,9 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     _dobCtrl.dispose();
     _locationCtrl.dispose();
     _phoneCtrl.dispose();
+    _goalDateCtrl.dispose();
+    _savingCtrl.dispose();
+    _targetCtrl.dispose();
     super.dispose();
   }
 
@@ -196,6 +245,46 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                         border: InputBorder.none,
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  const Text(
+                    'Saving Goal',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Goal Date picker
+                  GestureDetector(
+                    onTap: _pickGoalDate,
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        controller: _goalDateCtrl,
+                        decoration: _inputDecoration('Goal Date'),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Saving
+                  TextFormField(
+                    controller: _savingCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: _inputDecoration('Current Saving'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Target
+                  TextFormField(
+                    controller: _targetCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: _inputDecoration('Target Amount'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 24),
 

@@ -7,6 +7,32 @@ import '../services/notification_service.dart';
 import '../services/notification_schedule.dart';
 import 'dart:async'; // for Timer
 
+// Optional: Create a mapping of questions to answers
+final Map<String, String> faqContents = {
+  "Why is 10% of my income locked?":
+      "It’s auto-locked to help you save consistently, similar to Singapore’s CPF system. This will help you build good saving habits and ensures you always have emergency funds.",
+  "Can I use the locked savings anytime? ":
+      "Yes, but only with guardian approval. You’ll need your guardian to approve spending from locked savings so you reflect before using it. ",
+  "How is my daily spending calculated?":
+      " It is based on your income, expenses, and saving goals. The app uses budgeting rules, specifically the 50-30-20 rule to split your money into needs, wants, and savings. ",
+  "What is the savings goal?":
+      "It’s the monthly amount you want to save — you set this during setup.",
+  "What happens if I overspend for the day?":
+      "You’ll get a warning and adjusted limits for the rest of the week. This prevents you from building a habit of overspending and helps you stay on track monthly.",
+  "Can I change my financial goals later?":
+      "Yes, anytime in your settings. You can update your goal amount, deadline, or purpose if your priorities change. ",
+  "What’s the difference between ‘needs’ and ‘wants’?":
+      "Needs are essentials (e.g., food, rent); wants are extras (e.g., bubble tea, games). Separating them helps you avoid spending too much on things that aren’t urgent. ",
+  "How does the app know the cost of living in my area?":
+      "We use average prices based on your location. This helps you budget more realistically depending on where you live. ",
+  "What if my income changes?":
+      "Just update it in your profile, your budget will adjust automatically. This keeps your spending and saving recommendations accurate and flexible. ",
+  "Can I use this app even if I don’t earn a salary?":
+      "Yes! You can track allowance or set a fixed budget. The app is useful for students too as it helps you manage pocket money wisely. ",
+  "Is my financial data safe? ":
+      "Yes, your data is securely stored and only visible to you (and your guardian if enabled). We use encryption and privacy settings to protect your financial information.",
+};
+
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
@@ -20,16 +46,17 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   // List of all FAQs
   final List<String> allFaqs = [
-    "How to see my monthly spending?",
-    "How to check my progress?",
-    "How to restart the app?",
+    "Why is 10% of my income locked?",
+    "Can I use the locked savings anytime? ",
+    "How is my daily spending calculated?",
     "What is the savings goal?",
-    "How do I set up my target?",
-    "What is the monthly savings percentage?",
-    "How do I add a new expense?",
-    "Where can I view my detailed savings?",
-    "What is the Guardian Control feature?",
-    "How to set up daily spending alert?",
+    "What happens if I overspend for the day?",
+    "Can I change my financial goals later?",
+    "What’s the difference between ‘needs’ and ‘wants’?",
+    "How does the app know the cost of living in my area?",
+    "What if my income changes?",
+    "Can I use this app even if I don’t earn a salary?",
+    "Is my financial data safe? ",
   ];
 
   // List of filtered FAQs based on search
@@ -141,10 +168,39 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _openFaq(BuildContext context, String title, String content) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FaqDetailPage(title: title, content: content),
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(content, style: const TextStyle(fontSize: 16)),
+          ],
+        ),
       ),
     );
   }
@@ -433,9 +489,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _faqButton(String title) {
     return GestureDetector(
       onTap: () {
-        // Navigate to FAQ details
-        // You can define your FaqDetailPage route or logic here
-        _openFaq(context, title, 'Content for $title');
+        final content = faqContents[title] ?? 'Answer coming soon...';
+        _openFaq(context, title, content);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),

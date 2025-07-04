@@ -16,6 +16,10 @@ class _ProfilePageState extends State<ProfilePage> {
   String _phoneNumber = '';
   String _gender = '';
 
+  String _goalDate = '';
+  String _targetAmount = '';
+  String _savingsPurpose = '';
+
   @override
   void initState() {
     super.initState();
@@ -24,11 +28,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
+
     final name = prefs.getString('name') ?? '';
     final dobIso = prefs.getString('dob');
     final location = prefs.getString('location') ?? '';
     final phone = prefs.getString('phone') ?? '';
     final gender = prefs.getString('gender') ?? '';
+
+    // 💰 Load savings-related info
+    final goalDateIso = prefs.getString('goalDate');
+    final targetAmount = prefs.getString('amount') ?? '';
+    final purpose = prefs.getString('purpose') ?? '';
 
     String formattedDob = '';
     if (dobIso != null && dobIso.isNotEmpty) {
@@ -43,12 +53,25 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
 
+    String goalDate = '';
+    if (goalDateIso != null && goalDateIso.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(goalDateIso);
+        goalDate =
+            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      } catch (_) {}
+    }
+
     setState(() {
       _fullName = name;
       _dob = formattedDob;
       _location = location;
       _phoneNumber = phone;
       _gender = gender;
+
+      _goalDate = goalDate;
+      _targetAmount = targetAmount;
+      _savingsPurpose = purpose;
     });
   }
 
@@ -120,6 +143,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildField("DOB (DD/MM/YYYY)", _dob),
                       _buildField("Location", _location),
                       _buildField("Phone Number", _phoneNumber),
+                      //=======================================
+                      const SizedBox(height: 30),
+                      _buildField("Goal Date", _goalDate),
+                      _buildField("Target Savings", _targetAmount),
+                      _buildField("Savings Purpose", _savingsPurpose),
                       const Spacer(),
 
                       // Update Profile Button
