@@ -6,6 +6,37 @@ import 'services/notification_schedule.dart';
 // File: lib/screens/setup_page.dart
 // ————————————— add this above your `class SetupStep1` —————————————
 
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  final NumberFormat _formatter = NumberFormat.decimalPattern('id'); 
+  // for Indonesian: uses dots as thousands separators
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+  ) {
+    // 1. Strip out all non‐digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // 2. Format with thousands separators
+    final number = int.parse(digitsOnly);
+    final newText = _formatter.format(number);
+
+    // 3. Return the updated value, placing the cursor at the end
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
+}
+
+
 class SetupStep0 extends StatefulWidget {
   const SetupStep0({Key? key}) : super(key: key);
   @override
@@ -699,6 +730,10 @@ class _SetupStep1State extends State<SetupStep1> {
                                     child: TextFormField(
                                       controller: _amountCtrl,
                                       keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        ThousandsSeparatorInputFormatter(),
+                                      ],
                                       style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
@@ -708,7 +743,7 @@ class _SetupStep1State extends State<SetupStep1> {
                                         isDense: true,
                                         contentPadding: EdgeInsets.zero,
                                         border: InputBorder.none,
-                                        hintText: '20.000.000,00',
+                                        hintText: '20.000.000',
                                         hintStyle: TextStyle(
                                           fontSize: 24,
                                           fontWeight: FontWeight.bold,
