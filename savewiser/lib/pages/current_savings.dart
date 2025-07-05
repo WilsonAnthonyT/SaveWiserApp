@@ -61,6 +61,14 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
     return transactions.fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
+  double _calculateUsableBalance(List<Transaction> transactions) {
+    return transactions.fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double _calculatecpfBalance(List<Transaction> transactions) {
+    return transactions.fold(0.0, (sum, tx) => sum + tx.cpfPortion);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,6 +82,8 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
           }).toList();
 
           final balance = _calculateBalance(allTransactions);
+          final usableBalance = _calculateUsableBalance(allTransactions);
+          final cpfBalance = _calculatecpfBalance(allTransactions);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -103,11 +113,39 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          'Balance: ${balance.toStringAsFixed(2)}',
+                          'Total Balance: ${balance.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: balance >= 0 ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ),
+
+                      // Usable Balance
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Usable Balance: ${usableBalance.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: usableBalance >= 0
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                        ),
+                      ),
+
+                      // CPF Balance
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'CPF Balance: ${cpfBalance.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: cpfBalance >= 0 ? Colors.green : Colors.red,
                           ),
                         ),
                       ),
@@ -159,6 +197,33 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                           );
                         },
                       ),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TransactionListPage(
+                                  transactions: filteredTransactions.map((tx) {
+                                    return {
+                                      "description": tx.description ?? '',
+                                      "amount": tx.amount,
+                                      "category": tx.category,
+                                      "date": DateTime(
+                                        tx.year,
+                                        tx.month,
+                                        tx.date!,
+                                      ),
+                                    };
+                                  }).toList(),
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text("See Transaction History"),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -195,12 +260,14 @@ class SavingsPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Store totals for each category
     final Map<String, double> categoryTotals = {
       "Needs": 0.0,
       "Wants": 0.0,
       "Savings": 0.0,
     };
 
+    // Calculate totals for each category
     for (final tx in transactions) {
       if (tx.transactionType != 'Expense') continue;
 
@@ -210,41 +277,71 @@ class SavingsPieChart extends StatelessWidget {
       }
     }
 
+    // Calculate the total expenses
     final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
+
     if (total == 0) {
       return const Center(child: Text("No expense data available"));
     }
 
     final colors = [Colors.blue, Colors.red.shade700, Colors.green.shade700];
 
+    // Pie chart sections
+    final sections = List.generate(categoryTotals.length, (index) {
+      final category = categoryTotals.keys.elementAt(index);
+      final value = categoryTotals[category]!;
+      final percentage = (value / total) * 100;
+
+      return PieChartSectionData(
+        color: colors[index],
+        value: value,
+        title: "${percentage.toStringAsFixed(1)}%",
+        radius: 100,
+        titleStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    });
+
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        height: 250,
-        child: PieChart(
-          PieChartData(
-            sectionsSpace: 4,
-            centerSpaceRadius: 0,
-            pieTouchData: PieTouchData(enabled: false),
-            sections: List.generate(categoryTotals.length, (index) {
+      child: Column(
+        children: [
+          // Pie chart itself
+          SizedBox(
+            height: 250,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 4,
+                centerSpaceRadius: 0,
+                pieTouchData: PieTouchData(enabled: false),
+                sections: sections,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20), // Space between the pie chart and legend
+          // Legend below the pie chart
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(categoryTotals.length, (index) {
               final category = categoryTotals.keys.elementAt(index);
-              final value = categoryTotals[category]!;
-              final percentage = (value / total) * 100;
-
-              return PieChartSectionData(
-                color: colors[index],
-                value: value,
-                title: "${percentage.toStringAsFixed(1)}%",
-                radius: 100,
-                titleStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              return Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: Row(
+                  children: [
+                    // Color box for the legend
+                    Container(width: 20, height: 20, color: colors[index]),
+                    const SizedBox(width: 8),
+                    // Category label
+                    Text(category, style: const TextStyle(fontSize: 16)),
+                  ],
                 ),
               );
             }),
           ),
-        ),
+        ],
       ),
     );
   }

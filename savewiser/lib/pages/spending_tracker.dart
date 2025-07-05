@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/transaction.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SpendingTrackerPage extends StatefulWidget {
   const SpendingTrackerPage({super.key});
@@ -12,11 +13,13 @@ class SpendingTrackerPage extends StatefulWidget {
 class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   late Box<Transaction> _box;
   bool _isBoxReady = false;
+  int _autoLockPct = 10; // default to 10%
 
   @override
   void initState() {
     super.initState();
     _openBox();
+    _loadPrefs();
   }
 
   Future<void> _openBox() async {
@@ -24,6 +27,11 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     setState(() {
       _isBoxReady = true;
     });
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    _autoLockPct = prefs.getInt('autoLockPct') ?? 0;
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -35,14 +43,37 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
   String _transactionType = 'Expense';
-  String _currency = 'IDR';
+  final String _currency = 'IDR';
 
   final List<String> _categories = ['Needs', 'Wants', 'Savings'];
   final List<String> _transactionTypes = ['Expense', 'Income'];
 
+  double cpfPortion = 0.0;
+  double usablePortion = 0.0;
+
   double getCurrentBalance() {
     final transactions = _box.values.toList();
     return transactions.fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double getUsableBalance() {
+    final transactions = _box.values.toList();
+    return transactions.fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double getCpfBalance() {
+    final transactions = _box.values.toList();
+    return transactions.fold(0.0, (sum, tx) => sum + tx.cpfPortion);
+  }
+
+  double _getEstimatedCpf() {
+    final input = double.tryParse(_amountController.text) ?? 0.0;
+    return input * (_autoLockPct / 100); // dynamic CPF
+  }
+
+  double _getEstimatedUsable() {
+    final input = double.tryParse(_amountController.text) ?? 0.0;
+    return input - _getEstimatedCpf();
   }
 
   void _addTransaction() async {
@@ -51,21 +82,46 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     double amount = double.parse(_amountController.text);
     final String description = _descriptionController.text;
     final double balance = getCurrentBalance();
+    final double usableBalance = getUsableBalance();
+    final double cpfBalance = getCpfBalance();
 
     if (_transactionType == 'Expense') {
-      if (balance <= 0 || amount > balance.abs()) {
+      if (amount > balance) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text("Insufficient balance to make this expense."),
+            content: const Text(
+              "Insufficient total balance to make this expense.",
+            ),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
+      if (usableBalance < amount) {
+        double remainingAmount = amount - usableBalance;
+        bool cpfApproved = false;
+        cpfApproved = await _promptForCfpApproval(remainingAmount);
+        if (!cpfApproved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("You need approval to use CPF funds."),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        usablePortion = -usableBalance.abs();
+        cpfPortion = -remainingAmount.abs();
+      } else {
+        usablePortion = -amount.abs();
+        cpfPortion = 0.0;
+      }
       amount = -amount.abs();
     } else {
+      // Income transaction
       amount = amount.abs();
-      _selectedCategory = 'Income'; // force 'Income' category for income
+      cpfPortion = amount * _autoLockPct / 100.0;
+      usablePortion = amount - cpfPortion;
     }
 
     final tx = Transaction(
@@ -77,16 +133,55 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       transactionType: _transactionType,
       description: description,
       currency: _currency,
+      cpfPortion: cpfPortion,
+      usablePortion: usablePortion,
     );
 
+    // Add transaction to the box (database)
     await _box.add(tx);
 
+    // Clear the form fields
     _amountController.clear();
     _descriptionController.clear();
 
+    // Go back to the previous screen
     if (context.mounted) {
       Navigator.pop(context);
     }
+  }
+
+  // Function to prompt for CPF approval
+  Future<bool> _promptForCfpApproval(double remainingAmount) async {
+    // You can implement your logic for asking user approval here
+    // For simplicity, we return true as if the user approved the use of CPF funds
+
+    // For example, a dialog could pop up to ask for confirmation:
+    return await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Use CPF Funds'),
+              content: Text(
+                'Do you approve using $remainingAmount $_currency from your CPF balance?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(false); // User declined
+                  },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(true); // User approved
+                  },
+                  child: const Text('Approve'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false; // Default to false if the dialog is dismissed
   }
 
   @override
@@ -96,6 +191,8 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     }
 
     final double balance = getCurrentBalance();
+    final double cpfBalance = getCpfBalance();
+    final double usableBalance = getUsableBalance();
 
     // Force "Income" type if balance is 0
     if (balance == 0 && _transactionType != 'Income') {
@@ -112,7 +209,9 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
           child: ListView(
             children: [
               DropdownButtonFormField<String>(
-                value: _transactionType,
+                value: _transactionType.isNotEmpty
+                    ? _transactionType
+                    : null, // Ensure value is valid
                 items: _transactionTypes
                     .map(
                       (type) =>
@@ -126,6 +225,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                   labelText: "Transaction Type",
                 ),
               ),
+
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -200,8 +300,37 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: "Description"),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a description'; // Message to show if the field is empty
+                  }
+                  return null; // If validation passes, return null
+                },
               ),
               const SizedBox(height: 20),
+
+              if (_transactionType == 'Income') ...[
+                Text(
+                  "Estimated CPF Lock: ${_getEstimatedCpf().toStringAsFixed(2)} $_currency",
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  "Estimated Usable: ${_getEstimatedUsable().toStringAsFixed(2)} $_currency",
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+              ] else if (_transactionType == 'Expense') ...[
+                Text(
+                  "Current Usable Balance: ${usableBalance.toStringAsFixed(2)} $_currency",
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  "CPF Balance: ${cpfBalance.toStringAsFixed(2)} $_currency",
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               ElevatedButton(
                 onPressed: _addTransaction,
                 child: const Text("Add Transaction"),

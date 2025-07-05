@@ -272,7 +272,7 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                   TextFormField(
                     controller: _savingCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: _inputDecoration('Current Saving'),
+                    decoration: _inputDecoration('Target Savings'),
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
@@ -281,8 +281,7 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                   // Target
                   TextFormField(
                     controller: _targetCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDecoration('Target Amount'),
+                    decoration: _inputDecoration('Savings Purpose'),
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
