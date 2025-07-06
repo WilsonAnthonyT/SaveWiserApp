@@ -6,6 +6,8 @@ import '../models/transaction.dart';
 import 'transaction_list.dart';
 import 'spending_tracker.dart';
 
+final currencyFormatter = NumberFormat.decimalPattern();
+
 class CurrentSavingsPage extends StatefulWidget {
   const CurrentSavingsPage({super.key});
 
@@ -113,7 +115,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          'Total Balance: ${balance.toStringAsFixed(2)}',
+                          'Total Balance: ${currencyFormatter.format(balance)}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -126,7 +128,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          'Usable Balance: ${usableBalance.toStringAsFixed(2)}',
+                          'Usable Balance: ${currencyFormatter.format(usableBalance)}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -141,7 +143,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          'CPF Balance: ${cpfBalance.toStringAsFixed(2)}',
+                          'CPF Balance: ${currencyFormatter.format(cpfBalance)}',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -175,6 +177,8 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       const SizedBox(height: 20),
                       SavingsPieChart(
                         transactions: filteredTransactions,
+                        targetSavingsPercent:
+                            20.0, // later replace with prefs.getDouble() if needed
                         onTap: () {
                           Navigator.push(
                             context,
@@ -197,6 +201,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                           );
                         },
                       ),
+
                       const SizedBox(height: 20),
                       Center(
                         child: ElevatedButton(
@@ -251,12 +256,43 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
 class SavingsPieChart extends StatelessWidget {
   final List<Transaction> transactions;
   final VoidCallback onTap;
+  final double targetSavingsPercent;
 
   const SavingsPieChart({
     super.key,
     required this.transactions,
     required this.onTap,
+    required this.targetSavingsPercent,
   });
+
+  String _generateFeedback(Map<String, double> categoryTotals) {
+    final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
+    if (total == 0) return "No spending data for this month.";
+
+    final savingsPct = (categoryTotals['Savings'] ?? 0) / total * 100;
+    final wantsPct = (categoryTotals['Wants'] ?? 0) / total * 100;
+    final needsPct = (categoryTotals['Needs'] ?? 0) / total * 100;
+
+    final feedback = <String>[];
+
+    if (savingsPct >= targetSavingsPercent + 5) {
+      feedback.add("🎉 You saved more than your goal. Amazing!");
+    } else if (savingsPct >= targetSavingsPercent) {
+      feedback.add("✅ You hit your savings target!");
+    } else {
+      feedback.add("🚨 Savings below target. Try spending less on wants.");
+    }
+
+    if (wantsPct > 30) {
+      feedback.add("⚠️ Wants exceeded 30%. Try reducing non-essentials.");
+    }
+
+    if (needsPct > 50) {
+      feedback.add("📊 Needs took over 50%. Can anything be optimized?");
+    }
+
+    return feedback.join("\n");
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +345,7 @@ class SavingsPieChart extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          // Pie chart itself
+          // Pie chart
           SizedBox(
             height: 250,
             child: PieChart(
@@ -321,8 +357,10 @@ class SavingsPieChart extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20), // Space between the pie chart and legend
-          // Legend below the pie chart
+
+          const SizedBox(height: 20),
+
+          // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(categoryTotals.length, (index) {
@@ -331,15 +369,39 @@ class SavingsPieChart extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 20),
                 child: Row(
                   children: [
-                    // Color box for the legend
                     Container(width: 20, height: 20, color: colors[index]),
                     const SizedBox(width: 8),
-                    // Category label
                     Text(category, style: const TextStyle(fontSize: 16)),
                   ],
                 ),
               );
             }),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Feedback message
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              color: Colors.indigo[50],
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  _generateFeedback(categoryTotals),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.indigo,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

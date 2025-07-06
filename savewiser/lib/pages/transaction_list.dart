@@ -5,6 +5,8 @@ import '../models/transaction.dart';
 import 'profile_page.dart';
 import 'spending_tracker.dart';
 
+final currencyFormatter = NumberFormat.decimalPattern();
+
 class TransactionListPage extends StatefulWidget {
   final List<Map<String, dynamic>> transactions; // Define transactions
 
@@ -34,6 +36,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         'category': tx.category,
         'description': tx.description ?? '',
         'date': DateTime(tx.year, tx.month, tx.date!),
+        'type': tx.transactionType,
+        'cur': tx.currency,
       };
     }).toList();
   }
@@ -42,7 +46,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
     List<Map<String, dynamic>> txs = _transactions;
 
     if (selectedCategory != 'All') {
-      txs = txs.where((tx) => tx['category'] == selectedCategory).toList();
+      if (selectedCategory == 'Income') {
+        txs = txs.where((tx) => tx['type'] == 'Income').toList();
+      } else {
+        txs = txs
+            .where(
+              (tx) =>
+                  tx['type'] == 'Expense' && tx['category'] == selectedCategory,
+            )
+            .toList();
+      }
     }
 
     if (searchQuery.isNotEmpty) {
@@ -196,22 +209,91 @@ class _TransactionListPageState extends State<TransactionListPage> {
                         ),
                       ),
                     );
-                    final txWidgets = entry.value.map(
-                      (tx) => ListTile(
-                        leading: const Icon(Icons.monetization_on),
-                        title: Text(tx["description"]),
-                        subtitle: Text(tx["category"]),
-                        trailing: Text(
-                          "${tx["amount"] >= 0 ? "+" : "-"}\$${(tx["amount"].abs() / 1000).toStringAsFixed(1)}k",
+                    final txWidgets = entry.value.map((tx) {
+                      final isIncome = tx['type'] == 'Income';
+
+                      return ListTile(
+                        leading: Icon(
+                          isIncome ? Icons.attach_money : Icons.money_off,
+                          color: isIncome ? Colors.green[700] : Colors.red[700],
+                        ),
+                        title: Text(
+                          tx["description"],
                           style: TextStyle(
-                            color: tx["amount"] >= 0
-                                ? Colors.green
-                                : Colors.red,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
+                            color: isIncome
+                                ? Colors.green[800]
+                                : Colors.black87,
                           ),
                         ),
-                      ),
-                    );
+                        subtitle: Text(
+                          isIncome ? "Income" : tx["category"],
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        trailing: Text(
+                          "${tx["cur"]} ${isIncome ? "+ " : "- "}${currencyFormatter.format(tx["amount"].abs())}",
+                          style: TextStyle(
+                            color: isIncome ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        onLongPress: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Delete this transaction?"),
+                              content: const Text(
+                                "This action cannot be undone.",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text("Delete"),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm != true) return;
+
+                          final allTx = _box.values.toList();
+
+                          try {
+                            final txToDelete = allTx.firstWhere(
+                              (t) =>
+                                  t.amount == tx['amount'] &&
+                                  t.description == tx['description'] &&
+                                  t.category == tx['category'] &&
+                                  t.transactionType == tx['type'] &&
+                                  t.currency == tx['cur'] &&
+                                  DateTime(t.year, t.month, t.date!) ==
+                                      tx['date'],
+                            );
+
+                            final key = _box.keyAt(allTx.indexOf(txToDelete));
+                            await _box.delete(key);
+                            setState(() {}); // Refresh UI
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Failed to delete transaction."),
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    });
+
                     return [dateLabel, ...txWidgets];
                   }),
                 ],

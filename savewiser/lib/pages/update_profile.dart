@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/thousand_separator_input.dart';
+import 'package:flutter/services.dart';
 
 class UpdateProfilePage extends StatefulWidget {
   const UpdateProfilePage({Key? key}) : super(key: key);
@@ -273,6 +275,10 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                     controller: _savingCtrl,
                     keyboardType: TextInputType.number,
                     decoration: _inputDecoration('Target Savings'),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      ThousandsSeparatorInputFormatter(), // or 'en'
+                    ],
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),

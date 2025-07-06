@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/transaction.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/thousand_separator_input.dart';
+import 'package:flutter/services.dart';
 
 class SpendingTrackerPage extends StatefulWidget {
   const SpendingTrackerPage({super.key});
@@ -14,6 +16,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   late Box<Transaction> _box;
   bool _isBoxReady = false;
   int _autoLockPct = 10; // default to 10%
+  bool _guardEnable = false;
 
   @override
   void initState() {
@@ -31,7 +34,12 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    _autoLockPct = prefs.getInt('autoLockPct') ?? 0;
+    _guardEnable = prefs.getBool('guardianEnabled') ?? false;
+    if (_guardEnable) {
+      _autoLockPct = prefs.getInt('autoLockPct') ?? 0;
+    } else {
+      _autoLockPct = 0;
+    }
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -79,7 +87,12 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   void _addTransaction() async {
     if (!_formKey.currentState!.validate()) return;
 
-    double amount = double.parse(_amountController.text);
+    double amount =
+        double.tryParse(
+          _amountController.text.replaceAll(RegExp(r'[^\d]'), ''),
+        ) ??
+        0.0;
+
     final String description = _descriptionController.text;
     final double balance = getCurrentBalance();
     final double usableBalance = getUsableBalance();
@@ -281,6 +294,10 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  ThousandsSeparatorInputFormatter(), // or 'en'
+                ],
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Enter an amount' : null,
               ),
@@ -310,6 +327,13 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
               const SizedBox(height: 20),
 
               if (_transactionType == 'Income') ...[
+                Text(
+                  "Guardian Control: ${_guardEnable ? 'ON' : 'OFF'} (Lock $_autoLockPct%)",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
                 Text(
                   "Estimated CPF Lock: ${_getEstimatedCpf().toStringAsFixed(2)} $_currency",
                   style: const TextStyle(fontSize: 14),
