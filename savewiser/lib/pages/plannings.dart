@@ -1,21 +1,40 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Simple transaction model
 typedef Category = String;
 
 class Transaction {
-  final String description;
+  final String name;
   final Category category;
   final double amount;
   final DateTime timestamp;
 
   Transaction({
-    required this.description,
+    required this.name,
     required this.category,
     required this.amount,
     required this.timestamp,
   });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'category': category,
+    'amount': amount,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory Transaction.fromJson(Map<String, dynamic> json) {
+    return Transaction(
+      name: json['name'],
+      category: json['category'],
+      amount: (json['amount'] as num).toDouble(),
+      timestamp: DateTime.parse(json['timestamp']),
+    );
+  }
 }
 
 class PlanningsPage extends StatefulWidget {
@@ -28,11 +47,42 @@ class PlanningsPage extends StatefulWidget {
 class _PlanningsPageState extends State<PlanningsPage> {
   final List<Transaction> _transactions = [];
   String _filter = 'All';
+  late SharedPreferences _prefs;
+  static const _storageKey = 'daily_planner_transactions';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    _prefs = await SharedPreferences.getInstance();
+    final String? data = _prefs.getString(_storageKey);
+    if (data != null) {
+      final List<dynamic> list = jsonDecode(data);
+      setState(() {
+        _transactions.clear();
+        _transactions.addAll(
+          list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)),
+        );
+      });
+    }
+  }
+
+  Future<void> _saveTransactions() async {
+    final String data = jsonEncode(
+      _transactions.map((t) => t.toJson()).toList(),
+    );
+    await _prefs.setString(_storageKey, data);
+  }
 
   void _addTransaction() {
-    String description = '';
+    String name = '';
     String amountText = '';
     String selectedCategory = 'Needs';
+    final amountController = TextEditingController();
+    final formatter = NumberFormat.decimalPattern('en_US');
 
     showDialog(
       context: context,
@@ -43,13 +93,27 @@ class _PlanningsPageState extends State<PlanningsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                decoration: const InputDecoration(labelText: 'Description'),
-                onChanged: (val) => description = val,
+                decoration: const InputDecoration(labelText: 'Name'),
+                onChanged: (val) => name = val,
               ),
               TextField(
+                controller: amountController,
                 decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType: TextInputType.number,
-                onChanged: (val) => amountText = val,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (val) {
+                  final numeric = val.replaceAll(',', '');
+                  if (numeric.isEmpty) return;
+                  final parsed = int.parse(numeric);
+                  final newText = formatter.format(parsed);
+                  setModalState(() {
+                    amountController.value = TextEditingValue(
+                      text: newText,
+                      selection: TextSelection.collapsed(offset: newText.length),
+                    );
+                  });
+                  amountText = numeric;
+                },
               ),
               const SizedBox(height: 12),
               Row(
@@ -79,15 +143,16 @@ class _PlanningsPageState extends State<PlanningsPage> {
             ElevatedButton(
               onPressed: () {
                 final amount = double.tryParse(amountText) ?? 0;
-                if (description.isNotEmpty && amount != 0) {
+                if (name.isNotEmpty && amount != 0) {
                   setState(() {
                     _transactions.add(Transaction(
-                      description: description,
+                      name: name,
                       category: selectedCategory.toLowerCase(),
                       amount: amount,
                       timestamp: DateTime.now(),
                     ));
                   });
+                  _saveTransactions();
                   Navigator.of(context).pop();
                 }
               },
@@ -103,7 +168,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
     setState(() {
       _transactions.removeAt(index);
     });
-    // TODO: move this transaction into the permanent log
+    _saveTransactions();
   }
 
   @override
@@ -207,13 +272,13 @@ class _PlanningsPageState extends State<PlanningsPage> {
           // Transaction list
           Expanded(
             child: filtered.isEmpty
-                ? const Center(child: Text('No transactions for today.'))
+                ? const Center(child: Text('No plans for today.'))
                 : ListView.builder(
               itemCount: filtered.length,
               itemBuilder: (ctx, i) {
                 final tx = filtered[i];
                 return ListTile(
-                  title: Text(tx.description),
+                  title: Text(tx.name),
                   subtitle: Text(
                     DateFormat('hh:mm a').format(tx.timestamp),
                   ),
