@@ -29,22 +29,36 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   String? _advice;
   bool _isLoading = false;
   late double pace;
-  late String _goalDateText;
+  late String? _goalDateText;
   late double moneySaved;
+  late String mygoal;
+  late String moneyGoal;
 
   final Random rng = Random();
+
+  Future<void> _getPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    moneyGoal = prefs.getString('amount') ?? "";
+    mygoal = prefs.getString("goalDate") ?? "";
+    final stats = _computeSavingsStats();
+    moneySaved = stats[0];
+    pace = stats[1];
+    final goalDate = _estimateGoalDate(stats[0], stats[1], double.tryParse(moneyGoal.replaceAll(",", "")) ?? 0);
+    final formatted = DateFormat.yMMMMd().format(goalDate);
+
+    setState(() {
+      _goalDateText = '$formatted';
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _goalDateText = "";
     _refreshData();
     _fetchAdvice();
-    final stats = _computeSavingsStats();
-    moneySaved = stats[0];
-    final goalDate = _estimateGoalDate(stats[0], stats[1], 10000);
-    final formatted = DateFormat.yMMMMd().format(goalDate);
+    _getPreference();
     setState(() {
-      _goalDateText = '$formatted';
     });
   }
 
@@ -170,7 +184,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   Future<void> _fetchAdvice() async {
     setState(() => _isLoading = true);
     try {
-      final resp = await ApiService().fetchAdvice();
+      final resp = await ApiService().fetchAdvice(moneySaved, mygoal, pace, moneyGoal);
       if (!mounted) return;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final content =
