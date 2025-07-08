@@ -107,7 +107,7 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
     final dt = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: now,
+      firstDate: now.subtract(const Duration(days: 5)),
       lastDate: DateTime(now.year + 10),
     );
     if (dt != null) {

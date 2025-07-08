@@ -54,15 +54,25 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
     _box = Hive.box<Transaction>('transactions');
     _refreshMonths();
     _loadPrefs();
+    // _resetGoalData();
   }
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final loaded = prefs.getString('amount') ?? '';
+    final goalDateStr = prefs.getString('goalDate');
+
     setState(() {
       _targetAmount = loaded;
+
+      if (goalDateStr != null && goalDateStr.isNotEmpty) {
+        try {
+          _goalDate = DateTime.parse(goalDateStr);
+        } catch (e) {
+          _goalDate = null;
+        }
+      }
     });
-    // 👈 New function
   }
 
   Future<void> _resetGoalData() async {
@@ -89,32 +99,45 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   }
 
   void _showGoalResetDialog(BuildContext context) {
+    final hasGoal = _targetAmount.isNotEmpty && _goalDate != null;
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Goal Achieved 🎉"),
-        content: const Text(
-          "You've reached your savings target!\nWhat would you like to do next?",
+        title: Text(hasGoal ? "Goal Achieved 🎉" : "No Goal Set"),
+        content: Text(
+          hasGoal
+              ? "You've reached your savings target!\nWhat would you like to do next?"
+              : "You haven't set a savings goal yet. Please set one in your profile to start tracking progress.",
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _resetGoalData();
-              Navigator.pop(context);
-            },
-            child: const Text("Reset Goal"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SpendingTrackerPage()),
-              );
-            },
-            child: const Text("Continue Saving"),
-          ),
-        ],
+        actions: hasGoal
+            ? [
+                TextButton(
+                  onPressed: () {
+                    _resetGoalData();
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Reset Goal"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SpendingTrackerPage(),
+                      ),
+                    );
+                  },
+                  child: const Text("Continue Saving"),
+                ),
+              ]
+            : [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ],
       ),
     );
   }
@@ -611,6 +634,32 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                   icon: const Icon(Icons.refresh),
                   onPressed: () => _showGoalResetDialog(context),
                   label: const Text("Start New Goal"),
+                ),
+              ],
+              // ⚠️ Warn if user keeps saving without resetting
+              if (hasReachedGoal && _targetAmount.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "You've reached your savings goal. Please reset to start a new goal. Additional savings won't be tracked toward the new goal.",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],

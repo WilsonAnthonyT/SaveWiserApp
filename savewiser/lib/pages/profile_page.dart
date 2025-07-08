@@ -35,7 +35,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final phone = prefs.getString('phone') ?? '';
     final gender = prefs.getString('gender') ?? '';
 
-    // 💰 Load savings-related info
     final goalDateIso = prefs.getString('goalDate');
     final targetAmount = prefs.getString('amount') ?? '';
     final purpose = prefs.getString('purpose') ?? '';
@@ -45,9 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
       try {
         final dt = DateTime.parse(dobIso);
         formattedDob =
-            '${dt.day.toString().padLeft(2, '0')}/'
-            '${dt.month.toString().padLeft(2, '0')}/'
-            '${dt.year}';
+            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
       } catch (_) {
         formattedDob = '';
       }
@@ -68,7 +65,6 @@ class _ProfilePageState extends State<ProfilePage> {
       _location = location;
       _phoneNumber = phone;
       _gender = gender;
-
       _goalDate = goalDate;
       _targetAmount = targetAmount;
       _savingsPurpose = purpose;
@@ -82,13 +78,7 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF6F2EE),
         elevation: 0,
-        // leading: IconButton(
-        //   icon: const Icon(Icons.arrow_back, color: Colors.black87),
-        //   onPressed: () {
-        //     Navigator.pop(context, true); // 👈 Go back
-        //   },
-        // ),
-        automaticallyImplyLeading: true,
+        automaticallyImplyLeading: false,
         centerTitle: true,
         title: Text(
           'SAVEWISER',
@@ -98,17 +88,23 @@ class _ProfilePageState extends State<ProfilePage> {
             color: Colors.indigo[900],
           ),
         ),
-      ), // Light beige background
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context, true); // 👈 This line
+          },
+        ),
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-
-            // Profile Card
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Container(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(32),
@@ -144,14 +140,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildField("DOB (DD/MM/YYYY)", _dob),
                       _buildField("Location", _location),
                       _buildField("Phone Number", _phoneNumber),
-                      //=======================================
                       const SizedBox(height: 30),
                       _buildField("Goal Date", _goalDate),
                       _buildField("Target Savings", _targetAmount),
                       _buildField("Savings Purpose", _savingsPurpose),
-                      const Spacer(),
-
-                      // Update Profile Button
+                      const SizedBox(height: 24),
                       TextButton(
                         onPressed: () {
                           Navigator.push(
@@ -170,16 +163,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
-                      // ✅ Save and Exit button
                       ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.pop(
-                            context,
-                            true,
-                          ); // ✅ Triggers return value
+                          Navigator.pop(context, true);
                         },
                         icon: const Icon(Icons.check_circle_outline),
                         label: const Text("Save and Exit"),
@@ -198,9 +185,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
