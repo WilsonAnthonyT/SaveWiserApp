@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/thousand_separator_input.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../services/notification_service.dart';
 
 final NumberFormat currencyFormatter =
     NumberFormat.decimalPattern(); // 'en_US' by default
@@ -103,8 +105,93 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
         0.0;
   }
 
+  double getThisMonthIncome(int year, int month) {
+    final transactions = _box.values.toList();
+    return transactions
+        .where(
+          (tx) =>
+              tx.transactionType == 'Income' &&
+              tx.year == year &&
+              tx.month == month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+  }
+
+  double getSpendingOnDay(int year, int month, int day) {
+    final transactions = _box.values.toList();
+    return transactions
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == year &&
+              tx.month == month &&
+              tx.date == day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+  }
+
+  double getTotalOverspentUntilToday() {
+    final now = DateTime.now();
+    double dailyLimit =
+        getThisMonthIncome(now.year, now.month) /
+        DateUtils.getDaysInMonth(now.year, now.month);
+
+    double totalOverspent = 0.0;
+
+    for (int d = 1; d <= now.day; d++) {
+      double spent = getSpendingOnDay(now.year, now.month, d);
+      if (spent > dailyLimit) {
+        totalOverspent += (spent - dailyLimit);
+      }
+    }
+
+    return totalOverspent;
+  }
+
+  double getAdjustedTodayLimit() {
+    final now = DateTime.now();
+    final income = getThisMonthIncome(now.year, now.month);
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+
+    // Sum all spending before today
+    final spentSoFar = _box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == now.year &&
+              tx.month == now.month &&
+              tx.date != null &&
+              tx.date! < now.day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+
+    final remainingIncome = income - spentSoFar;
+    final remainingDays = daysInMonth - now.day + 1;
+
+    if (remainingIncome <= 0 || remainingDays <= 0) return 0.0;
+
+    return remainingIncome / remainingDays;
+  }
+
   void _addTransaction() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final now = DateTime.now();
+    final selectedDateTime = DateTime(
+      _selectedYear,
+      _selectedMonth,
+      _selectedDate,
+    );
+
+    if (selectedDateTime.isAfter(DateTime(now.year, now.month, now.day))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("🚫 You can't add a transaction for a future date."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     double amount =
         double.tryParse(
@@ -172,6 +259,22 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     // Add transaction to the box (database)
     await _box.add(tx);
 
+    if (_transactionType == 'Expense') {
+      final now = DateTime.now();
+      final todaySpent = getSpendingOnDay(now.year, now.month, now.day);
+      final todayLimit = getAdjustedTodayLimit();
+
+      if (getThisMonthIncome(now.year, now.month) > 0 &&
+          todaySpent > todayLimit) {
+        await NotificationService().showNow(
+          id: 1,
+          title: "Overspending Alert!",
+          body:
+              "You've spent ${currencyFormatter.format(todaySpent)} today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
+        );
+      }
+    }
+
     // Clear the form fields
     _amountController.clear();
     _descriptionController.clear();
@@ -218,9 +321,14 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final now = DateTime.now(); // ✅ this was missing
+
     final double balance = getCurrentBalance();
     final double cpfBalance = getCpfBalance();
     final double usableBalance = getUsableBalance();
+
+    double todaySpent = getSpendingOnDay(now.year, now.month, now.day);
+    double todayLimit = getAdjustedTodayLimit();
 
     // Force "Income" type if balance is 0
     if (balance <= 0 && _transactionType != 'Income') {
@@ -382,6 +490,16 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 12),
+                if (getThisMonthIncome(now.year, now.month) <= 0)
+                  const Text(
+                    "⚠️ You haven't added any income for this month.\nDaily spending limit is disabled.",
+                    style: TextStyle(color: Colors.red, fontSize: 14),
+                  )
+                else if (todaySpent > todayLimit)
+                  Text(
+                    "⚠️ You’ve exceeded today’s adjusted limit by ${currencyFormatter.format(todaySpent - todayLimit)}",
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
+                  ),
               ],
 
               ElevatedButton(

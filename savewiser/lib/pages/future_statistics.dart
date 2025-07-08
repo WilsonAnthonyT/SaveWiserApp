@@ -6,10 +6,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'api_service.dart'; // Contains your ApiService.fetchAdvice()
 
 class FutureStatisticsPage extends StatefulWidget {
-  const FutureStatisticsPage({Key? key}) : super(key: key);
+  const FutureStatisticsPage({super.key});
 
   @override
-  _FutureStatisticsPageState createState() => _FutureStatisticsPageState();
+  State<FutureStatisticsPage> createState() => _FutureStatisticsPageState();
+  //_FutureStatisticsPageState createState() => _FutureStatisticsPageState();
 }
 
 class _FutureStatisticsPageState extends State<FutureStatisticsPage> {

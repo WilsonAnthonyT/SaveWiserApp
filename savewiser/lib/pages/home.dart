@@ -3,16 +3,16 @@ import 'package:pie_chart/pie_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final _formKey = GlobalKey<FormState>();
+  //final _formKey = GlobalKey<FormState>();
   String _name = "";
 
-  Future<void> InitShared() async {
+  Future<void> initShared() async {
     final prefs = await SharedPreferences.getInstance();
     _name = prefs.getString("name") ?? "";
     setState(() {});
@@ -21,7 +21,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    InitShared();
+    initShared();
   }
 
   Widget buildSavingsPieChartCard() {

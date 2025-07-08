@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+//import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:pie_chart/pie_chart.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import 'transaction_list.dart';
@@ -88,6 +89,30 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
 
   double _calculateCpfBalance(List<Transaction> transactions) =>
       transactions.fold(0.0, (sum, tx) => sum + tx.cpfPortion);
+
+  double getThisMonthUsableIncome(int year, int month) {
+    final txs = _box.values.toList();
+    return txs
+        .where(
+          (tx) =>
+              tx.transactionType == 'Income' &&
+              tx.year == year &&
+              tx.month == month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double getThisMonthIncome(int year, int month) {
+    final transactions = _box.values.toList();
+    return transactions
+        .where(
+          (tx) =>
+              tx.transactionType == 'Income' &&
+              tx.year == year &&
+              tx.month == month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +250,47 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   }
 
   Widget _buildBalanceCard(double balance, double usable, double cpf) {
+    final now = DateTime.now();
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+    final today = now.day;
+    final remainingDays = daysInMonth - today + 1; // include today
+
+    // Calculate today's total spending
+    final double spentToday = _box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == now.year &&
+              tx.month == now.month &&
+              tx.date == now.day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+
+    // Calculate today's adjusted spending limit
+    final double totalUsableIncome = getThisMonthUsableIncome(
+      now.year,
+      now.month,
+    );
+
+    // Calculate usable already spent BEFORE today
+    final double spentBeforeToday = _box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == now.year &&
+              tx.month == now.month &&
+              tx.date != null &&
+              tx.date! < now.day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
+
+    final double remainingUsable = totalUsableIncome - spentBeforeToday;
+
+    final double rawLimit = (remainingUsable > 0 && remainingDays > 0)
+        ? remainingUsable / remainingDays
+        : 0.0;
+    final double adjustedTodayLimit = rawLimit - spentToday;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -249,6 +315,46 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
           _buildBalanceRow("Total Balance", balance, Colors.blue.shade800),
           _buildBalanceRow("Usable Balance", usable, Colors.green.shade700),
           _buildBalanceRow("CPF Balance", cpf, Colors.orange.shade700),
+          const SizedBox(height: 12),
+
+          // Today's spending limit
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  "Today's Spending Limit",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${currencyFormatter.format(adjustedTodayLimit.clamp(0, double.infinity))} IDR',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: adjustedTodayLimit >= 0 ? Colors.teal : Colors.red,
+                ),
+              ),
+            ],
+          ),
+
+          if (getThisMonthIncome(now.year, now.month) <= 0)
+            const Padding(
+              padding: EdgeInsets.only(top: 4.0),
+              child: Text(
+                "⚠️ You haven't added income for this month.\nDaily spending limit is inactive.",
+                style: TextStyle(fontSize: 14, color: Colors.red),
+              ),
+            )
+          else if (adjustedTodayLimit < 0)
+            const Padding(
+              padding: EdgeInsets.only(top: 4.0),
+              child: Text(
+                "⚠️ You've exceeded today's limit.",
+                style: TextStyle(fontSize: 14, color: Colors.red),
+              ),
+            ),
         ],
       ),
     );
@@ -354,14 +460,11 @@ class SavingsPieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Store totals for each category
     final Map<String, double> categoryTotals = {
       "Needs": 0.0,
       "Wants": 0.0,
       "Savings": 0.0,
     };
-
-    // Calculate totals for each category
     for (final tx in transactions) {
       if (tx.transactionType != 'Expense') continue;
 
@@ -371,74 +474,62 @@ class SavingsPieChart extends StatelessWidget {
       }
     }
 
-    // Calculate the total expenses
     final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
 
     if (total == 0) {
       return const Center(child: Text("No expense data available"));
     }
 
-    final colors = [Colors.blue, Colors.red.shade700, Colors.green.shade700];
+    final Map<String, double> dataMap = {
+      for (var entry in categoryTotals.entries) entry.key: entry.value,
+    };
 
-    // Pie chart sections
-    final sections = List.generate(categoryTotals.length, (index) {
-      final category = categoryTotals.keys.elementAt(index);
-      final value = categoryTotals[category]!;
-      final percentage = (value / total) * 100;
-
-      return PieChartSectionData(
-        color: colors[index],
-        value: value,
-        title: "${percentage.toStringAsFixed(1)}%",
-        radius: 100,
-        titleStyle: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    });
+    final colorList = [Colors.blue, Colors.red.shade700, Colors.green.shade700];
 
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          // Pie chart
-          SizedBox(
-            height: 250,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 4,
-                centerSpaceRadius: 0,
-                pieTouchData: PieTouchData(enabled: false),
-                sections: sections,
+          PieChart(
+            dataMap: dataMap,
+            animationDuration: const Duration(milliseconds: 800),
+            chartType: ChartType.disc,
+            chartRadius: MediaQuery.of(context).size.width * 0.45,
+            colorList: colorList,
+            chartValuesOptions: const ChartValuesOptions(
+              showChartValuesInPercentage: true,
+              showChartValueBackground: false,
+              chartValueStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.white,
               ),
             ),
+            legendOptions: const LegendOptions(showLegends: false),
           ),
-
           const SizedBox(height: 20),
 
-          // Legend
+          // Custom Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(categoryTotals.length, (index) {
-              final category = categoryTotals.keys.elementAt(index);
+            children: categoryTotals.keys.toList().asMap().entries.map((entry) {
+              int index = entry.key;
+              String key = entry.value;
               return Padding(
-                padding: const EdgeInsets.only(right: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
                   children: [
-                    Container(width: 20, height: 20, color: colors[index]),
-                    const SizedBox(width: 8),
-                    Text(category, style: const TextStyle(fontSize: 16)),
+                    Icon(Icons.circle, color: colorList[index], size: 14),
+                    const SizedBox(width: 6),
+                    Text(key, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
               );
-            }),
+            }).toList(),
           ),
-
           const SizedBox(height: 20),
 
-          // Feedback message
+          // Feedback Card
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
