@@ -27,6 +27,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   bool _isLoading = false;
   late double pace;
   late String _goalDateText;
+  late double moneySaved;
 
   final Random rng = Random();
 
@@ -36,12 +37,29 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     _refreshData();
     _fetchAdvice();
     final stats = _computeSavingsStats();
+    moneySaved = stats[0];
     final goalDate = _estimateGoalDate(stats[0], stats[1], 10000);
     final formatted = DateFormat.yMMMMd().format(goalDate);
     setState(() {
       _goalDateText = '$formatted';
     });
 
+  }
+
+  double _niceInterval(double maxY) {
+    const targetLines = 8;
+    final raw = maxY / targetLines;
+    // pull out exponent (10ⁿ) of that raw interval
+    final exp = pow(10, (log(raw) / ln10).floor());
+    final frac = raw / exp;
+
+    double niceFrac;
+    if (frac <= 1)      niceFrac = 1;
+    else if (frac <= 2) niceFrac = 2;
+    else if (frac <= 5) niceFrac = 5;
+    else                niceFrac = 10;
+
+    return niceFrac * exp;
   }
 
   List<double> _computeSavingsStats() {
@@ -87,9 +105,42 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     return DateTime(now.year, now.month + monthsNeeded, 1);
   }
 
+  double calculateAverageSavingPercentage() {
+    final box = Hive.box<Transaction>('transactions');
+
+    // 1) Buckets keyed by "YYYY-MM"
+    final incomeByMonth = <String, double>{};
+    final netByMonth    = <String, double>{};
+
+    for (final txn in box.values) {
+      final key = '${txn.year}-${txn.month.toString().padLeft(2, '0')}';
+      // sum up incomes
+      incomeByMonth[key] = (incomeByMonth[key] ?? 0) +
+          (txn.amount > 0 ? txn.amount : 0);
+      // sum up net (income minus expense)
+      netByMonth[key] = (netByMonth[key] ?? 0) + txn.amount;
+    }
+
+    // 2) Compute each month’s saved% and average them
+    double totalPct = 0;
+    int counted = 0;
+
+    incomeByMonth.forEach((key, income) {
+      if (income > 0) {
+        final net = netByMonth[key]!;
+        final pct = (net / income) * 100;
+        totalPct += pct;
+        counted++;
+      }
+    });
+
+    return counted > 0 ? totalPct / counted : 0.0;
+  }
+
+
   Future<void> _refreshData() async {
     final box = Hive.box<Transaction>('transactions');
-    double startingPercentage = 20;
+    double startingPercentage = calculateAverageSavingPercentage();
     final freshSeries = {for (var y in years) y: List.generate(12, 
       (_) {
           final val = startingPercentage + (rng.nextDouble() * 6 - 3);
@@ -165,16 +216,15 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
   Widget _buildChartCard() {
     final months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    final maxY = (_series.values
-                .expand((e) => e)
-                .fold<double>(0, (prev, amt) => amt > prev ? amt : prev) + 10)
-            .ceilToDouble();
     
     final lineBarsData = [
       _makeLineBar(_series['2026']!, Colors.pinkAccent),
       _makeLineBar(_series['2027']!, Colors.purple),
       _makeLineBar(_series['2028']!, Colors.green)
     ];
+
+    final maxY     = (_series.values.expand((e) => e).reduce(max) + 10).ceilToDouble();
+    final interval = _niceInterval(maxY);
 
     return Container(
       decoration: BoxDecoration(
@@ -229,7 +279,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 5,
+                  horizontalInterval: interval,
                   getDrawingHorizontalLine: (v) => FlLine(
                     color: Colors.grey.shade300,
                     strokeWidth: 1,
@@ -262,7 +312,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      interval: 5,
+                      interval: interval,
                       reservedSize: 32,
                       getTitlesWidget: (value, meta) => Text(
                         value.toInt().toString(),
