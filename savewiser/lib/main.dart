@@ -29,16 +29,22 @@ void main() async {
   //firebase ini
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    //notif initi
-    await _requestNotificationPermission();
-    await _initializeTimeZone();
-    await NotificationService().init(); // 👈 Use your new service
-    await scheduleDailySpendingNotification();
-  }
+  //notif initi
+  await _requestNotificationPermission();
+  await _initializeTimeZone();
+  await NotificationService().init(); // 👈 Use your new service
+  await scheduleDailySpendingNotification();
 
   //transactions init
-  await Hive.initFlutter();
+  // final dir = await getApplicationDocumentsDirectory();
+  // Hive.init(dir.path);
+  if (kIsWeb) {
+    Hive.initFlutter(); // for web
+  } else {
+    final dir = await getApplicationDocumentsDirectory();
+    Hive.init(dir.path);
+  }
+
   Hive.registerAdapter(TransactionAdapter());
   //await Hive.deleteBoxFromDisk('transactions');
   await Hive.openBox<Transaction>('transactions');
