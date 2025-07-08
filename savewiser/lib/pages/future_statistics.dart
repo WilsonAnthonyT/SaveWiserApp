@@ -19,9 +19,12 @@ class FutureStatisticsPage extends StatefulWidget {
 
 class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   static const years = ['2026', '2027', '2028'];
-  Map<String, List<double>> _series = {for (var y in years) y: List.generate(12, (_) {
-    return 0;
-  })};
+  Map<String, List<double>> _series = {
+    for (var y in years)
+      y: List.generate(12, (_) {
+        return 0;
+      }),
+  };
 
   String? _advice;
   bool _isLoading = false;
@@ -43,7 +46,6 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     setState(() {
       _goalDateText = '$formatted';
     });
-
   }
 
   double _niceInterval(double maxY) {
@@ -54,10 +56,14 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     final frac = raw / exp;
 
     double niceFrac;
-    if (frac <= 1)      niceFrac = 1;
-    else if (frac <= 2) niceFrac = 2;
-    else if (frac <= 5) niceFrac = 5;
-    else                niceFrac = 10;
+    if (frac <= 1)
+      niceFrac = 1;
+    else if (frac <= 2)
+      niceFrac = 2;
+    else if (frac <= 5)
+      niceFrac = 5;
+    else
+      niceFrac = 10;
 
     return niceFrac * exp;
   }
@@ -75,7 +81,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     final dates = box.values.map((t) => DateTime(t.year, t.month)).toList()
       ..sort();
     final start = dates.first;
-    final now   = DateTime.now();
+    final now = DateTime.now();
     final monthsSpan =
         (now.year - start.year) * 12 +
         (now.month - start.month) +
@@ -87,7 +93,11 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     return [totalSaved, pace];
   }
 
-  DateTime _estimateGoalDate(double currentSaved, double monthlyPace, double goalAmount) {
+  DateTime _estimateGoalDate(
+    double currentSaved,
+    double monthlyPace,
+    double goalAmount,
+  ) {
     if (monthlyPace <= 0) {
       // no pace → can’t predict; just return “never”
       return DateTime(9999);
@@ -110,13 +120,13 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
     // 1) Buckets keyed by "YYYY-MM"
     final incomeByMonth = <String, double>{};
-    final netByMonth    = <String, double>{};
+    final netByMonth = <String, double>{};
 
     for (final txn in box.values) {
       final key = '${txn.year}-${txn.month.toString().padLeft(2, '0')}';
       // sum up incomes
-      incomeByMonth[key] = (incomeByMonth[key] ?? 0) +
-          (txn.amount > 0 ? txn.amount : 0);
+      incomeByMonth[key] =
+          (incomeByMonth[key] ?? 0) + (txn.amount > 0 ? txn.amount : 0);
       // sum up net (income minus expense)
       netByMonth[key] = (netByMonth[key] ?? 0) + txn.amount;
     }
@@ -137,18 +147,16 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     return counted > 0 ? totalPct / counted : 0.0;
   }
 
-
   Future<void> _refreshData() async {
     final box = Hive.box<Transaction>('transactions');
     double startingPercentage = calculateAverageSavingPercentage();
-    final freshSeries = {for (var y in years) y: List.generate(12, 
-      (_) {
+    final freshSeries = {
+      for (var y in years)
+        y: List.generate(12, (_) {
           final val = startingPercentage + (rng.nextDouble() * 6 - 3);
           return val.clamp(0.0, 100.0);
-        }
-      )
+        }),
     };
-    
 
     for (final txn in box.values) {
       final key = txn.year.toString();
@@ -163,12 +171,16 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     setState(() => _isLoading = true);
     try {
       final resp = await ApiService().fetchAdvice();
+      if (!mounted) return;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      final content = (data['choices'] as List).first['message']['content'] as String;
+      final content =
+          (data['choices'] as List).first['message']['content'] as String;
       setState(() => _advice = content.trim());
     } catch (_) {
+      if (!mounted) return;
       setState(() => _advice = 'Could not load advice.');
     } finally {
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -215,15 +227,29 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   }
 
   Widget _buildChartCard() {
-    final months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    
+    final months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+
     final lineBarsData = [
       _makeLineBar(_series['2026']!, Colors.pinkAccent),
       _makeLineBar(_series['2027']!, Colors.purple),
-      _makeLineBar(_series['2028']!, Colors.green)
+      _makeLineBar(_series['2028']!, Colors.green),
     ];
 
-    final maxY     = (_series.values.expand((e) => e).reduce(max) + 10).ceilToDouble();
+    final maxY = (_series.values.expand((e) => e).reduce(max) + 10)
+        .ceilToDouble();
     final interval = _niceInterval(maxY);
 
     return Container(
@@ -251,7 +277,11 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: years.map((y) {
-              final color = {'2026':Colors.pinkAccent, '2027': Colors.purple, '2028': Colors.green}[y]!;
+              final color = {
+                '2026': Colors.pinkAccent,
+                '2027': Colors.purple,
+                '2028': Colors.green,
+              }[y]!;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
@@ -259,7 +289,10 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                     Container(
                       width: 12,
                       height: 12,
-                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -280,10 +313,8 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: interval,
-                  getDrawingHorizontalLine: (v) => FlLine(
-                    color: Colors.grey.shade300,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (v) =>
+                      FlLine(color: Colors.grey.shade300, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   bottomTitles: AxisTitles(
@@ -320,7 +351,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                       ),
                     ),
                   ),
-                      // ← Explicitly hide the top ticks/labels
+                  // ← Explicitly hide the top ticks/labels
                   topTitles: AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
@@ -342,8 +373,8 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                     right: BorderSide(color: Colors.transparent),
                   ),
                 ),
-                  lineBarsData: lineBarsData,
-                ),
+                lineBarsData: lineBarsData,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -357,10 +388,15 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                   color: Colors.grey[800],
                 ),
                 children: [
-                  const TextSpan(text: 'At your current pace, you\'ll reach your goal by '),
+                  const TextSpan(
+                    text: 'At your current pace, you\'ll reach your goal by ',
+                  ),
                   TextSpan(
                     text: '$_goalDateText.',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
                   ),
                 ],
               ),
@@ -374,23 +410,24 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   LineChartBarData _makeLineBar(List<double> data, Color color) {
     return LineChartBarData(
       spots: data
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value))
-        .toList(),
+          .asMap()
+          .entries
+          .map((e) => FlSpot(e.key.toDouble(), e.value))
+          .toList(),
       isCurved: true,
       color: color,
       barWidth: 3,
       dotData: FlDotData(
-          show: true,
-          getDotPainter: (FlSpot spot, double _percent, LineChartBarData bar, int index) {
-            return FlDotCirclePainter(
-              radius: 4,            // size of the dot
-              color: color,     // match the line’s color
-              strokeWidth: 0,       // or give it a border
-            );
-          },
-        ),
+        show: true,
+        getDotPainter:
+            (FlSpot spot, double _percent, LineChartBarData bar, int index) {
+              return FlDotCirclePainter(
+                radius: 4, // size of the dot
+                color: color, // match the line’s color
+                strokeWidth: 0, // or give it a border
+              );
+            },
+      ),
     );
   }
 
@@ -416,7 +453,13 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
           ),
           const SizedBox(height: 16),
           if (_isLoading)
-            const Center(child: SizedBox(width: 48, height: 48, child: CircularProgressIndicator()))
+            const Center(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(),
+              ),
+            )
           else
             Text(
               _advice ?? '',
