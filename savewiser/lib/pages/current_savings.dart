@@ -43,7 +43,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   late List<MonthYear> _recentMonths;
   late MonthYear _selectedMonthYear;
   String _targetAmount = '';
-  bool _homeNotifications = true;
+  //bool _homeNotifications = true;
 
   @override
   void initState() {
@@ -54,9 +54,9 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   }
 
   @override
-  void didUpdateWidget(covariant CurrentSavingsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _loadPrefs(); // or _loadTargetAmount()
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadPrefs();
   }
 
   Future<void> _loadPrefs() async {
@@ -65,7 +65,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
     //print('🎯 Loaded target amount: $loaded'); // Debug
     setState(() {
       _targetAmount = loaded;
-      _homeNotifications = prefs.getBool('homeNotifications') ?? true;
+      //_homeNotifications = prefs.getBool('homeNotifications') ?? true;
     });
   }
 
