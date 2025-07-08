@@ -64,11 +64,19 @@ class _MainNavigationState extends State<MainNavigation> {
         actions: [
           IconButton(
             icon: Icon(Icons.account_circle),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ProfilePage()),
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
+
+              if (result == true && mounted && _selectedIndex == 1) {
+                // 👈 Only refresh if ProfilePage requested it and CurrentSavings is active
+                setState(() {
+                  // Force rebuild of CurrentSavingsPage
+                  _pages[1] = CurrentSavingsPage(key: UniqueKey());
+                });
+              }
             },
           ),
         ],

@@ -49,6 +49,11 @@ void main() async {
   //await Hive.deleteBoxFromDisk('transactions');
   await Hive.openBox<Transaction>('transactions');
 
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    print('❌ Flutter Error: ${details.exception}');
+  };
+
   runApp(SaveWiserApp());
 }
 

@@ -82,12 +82,13 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF6F2EE),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () {
-            Navigator.pop(context); // 👈 Go back
-          },
-        ),
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back, color: Colors.black87),
+        //   onPressed: () {
+        //     Navigator.pop(context, true); // 👈 Go back
+        //   },
+        // ),
+        automaticallyImplyLeading: true,
         centerTitle: true,
         title: Text(
           'SAVEWISER',
@@ -158,17 +159,39 @@ class _ProfilePageState extends State<ProfilePage> {
                             MaterialPageRoute(
                               builder: (context) => const UpdateProfilePage(),
                             ),
-                          ).then(
-                            (_) => _loadProfile(),
-                          ); // 👈 Reload profile when returning
+                          ).then((_) => _loadProfile());
                         },
-
                         child: const Text(
                           '+ Update your profile',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Colors.indigo,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ✅ Save and Exit button
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(
+                            context,
+                            true,
+                          ); // ✅ Triggers return value
+                        },
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text("Save and Exit"),
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.teal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                       ),

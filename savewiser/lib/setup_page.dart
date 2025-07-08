@@ -10,13 +10,13 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
-  final NumberFormat _formatter = NumberFormat.decimalPattern('id'); 
+  final NumberFormat _formatter = NumberFormat.decimalPattern();
   // for Indonesian: uses dots as thousands separators
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
   ) {
     // 1. Strip out all non‐digit characters
     final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
@@ -35,7 +35,6 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     );
   }
 }
-
 
 class SetupStep0 extends StatefulWidget {
   const SetupStep0({Key? key}) : super(key: key);
@@ -743,7 +742,7 @@ class _SetupStep1State extends State<SetupStep1> {
                                         isDense: true,
                                         contentPadding: EdgeInsets.zero,
                                         border: InputBorder.none,
-                                        hintText: '20.000.000',
+                                        hintText: '20,000,000',
                                         hintStyle: TextStyle(
                                           fontSize: 24,
                                           fontWeight: FontWeight.bold,

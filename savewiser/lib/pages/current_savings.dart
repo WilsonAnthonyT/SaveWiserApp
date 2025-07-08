@@ -43,6 +43,9 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   late List<MonthYear> _recentMonths;
   late MonthYear _selectedMonthYear;
   String _targetAmount = '';
+  DateTime? _goalDate;
+  bool _hasReachedGoal = false;
+  String _goalFeedbackMessage = '';
   //bool _homeNotifications = true;
 
   @override
@@ -53,20 +56,67 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
     _loadPrefs();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadPrefs();
-  }
-
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final loaded = prefs.getString('amount') ?? '';
-    //print('🎯 Loaded target amount: $loaded'); // Debug
     setState(() {
       _targetAmount = loaded;
-      //_homeNotifications = prefs.getBool('homeNotifications') ?? true;
     });
+    // 👈 New function
+  }
+
+  Future<void> _resetGoalData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final allTx = _box.values.toList();
+    final currentSavings = allTx
+        .where(
+          (tx) => tx.transactionType == 'Expense' && tx.category == 'Savings',
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+
+    await prefs.setDouble(
+      'savingsBaseline',
+      currentSavings,
+    ); // 👈 Save as baseline
+    await prefs.remove('amount');
+    await prefs.remove('goalDate');
+    await prefs.remove('purpose');
+
+    setState(() {
+      _targetAmount = '';
+    });
+  }
+
+  void _showGoalResetDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Goal Achieved 🎉"),
+        content: const Text(
+          "You've reached your savings target!\nWhat would you like to do next?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _resetGoalData();
+              Navigator.pop(context);
+            },
+            child: const Text("Reset Goal"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SpendingTrackerPage()),
+              );
+            },
+            child: const Text("Continue Saving"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _refreshMonths() {
@@ -439,62 +489,134 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   }
 
   Widget _buildSavingsCard(List<Transaction> allTransactions) {
-    final totalSavings = allTransactions
+    final rawSavings = allTransactions
         .where(
           (tx) => tx.transactionType == 'Expense' && tx.category == 'Savings',
         )
         .fold(0.0, (sum, tx) => sum + tx.amount.abs());
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Total Saved (All Time)',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${currencyFormatter.format(totalSavings)} IDR',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.teal,
-            ),
-          ),
+    final targetAmount =
+        double.tryParse(_targetAmount.replaceAll(',', '')) ?? 0;
 
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              const Text(
-                "Savings Goal: ",
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              Text(
-                _targetAmount.isNotEmpty
-                    ? '${currencyFormatter.format(double.tryParse(_targetAmount.replaceAll(',', '')) ?? 0)} IDR'
-                    : 'Not Set',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
-                ),
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+
+        final prefs = snapshot.data!;
+        final baseline = prefs.getDouble('savingsBaseline') ?? 0.0;
+
+        final totalSavings = (rawSavings - baseline).clamp(0, double.infinity);
+
+        final goalDateStr = prefs.getString('goalDate') ?? '';
+        DateTime? goalDate;
+
+        if (goalDateStr.isNotEmpty) {
+          try {
+            goalDate = DateTime.parse(goalDateStr);
+          } catch (_) {}
+        }
+
+        final hasReachedGoal = totalSavings >= targetAmount;
+        final today = DateTime.now();
+        final todayOnly = DateTime(today.year, today.month, today.day);
+        final goalOnly = goalDate != null
+            ? DateTime(goalDate.year, goalDate.month, goalDate.day)
+            : null;
+
+        final diffDays = goalOnly != null
+            ? todayOnly.difference(goalOnly).inDays
+            : null;
+
+        String feedbackMessage = '';
+        if (hasReachedGoal && goalDate != null) {
+          if (diffDays! < 0) {
+            feedbackMessage =
+                "🎉 You reached your goal ${-diffDays} days early!";
+          } else if (diffDays == 0) {
+            feedbackMessage = "🎯 You reached your goal on time!";
+          } else {
+            feedbackMessage = "✅ Goal achieved ${diffDays} days late!";
+          }
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: Offset(0, 3),
               ),
             ],
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Total Saved',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Since last goal reset",
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${currencyFormatter.format(totalSavings)} IDR',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Savings Goal: ",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    _targetAmount.isNotEmpty
+                        ? '${currencyFormatter.format(double.tryParse(_targetAmount.replaceAll(',', '')) ?? 0)} IDR'
+                        : 'Not Set',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                ],
+              ),
+
+              if (hasReachedGoal) ...[
+                const SizedBox(height: 12),
+                Text(
+                  feedbackMessage,
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => _showGoalResetDialog(context),
+                  label: const Text("Start New Goal"),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
