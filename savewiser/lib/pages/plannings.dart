@@ -26,31 +26,84 @@ class PlanningsPage extends StatefulWidget {
 }
 
 class _PlanningsPageState extends State<PlanningsPage> {
-  final List<Transaction> _transactions = [
-    Transaction(
-      description: 'Breakfast',
-      category: 'needs',
-      amount: -15.00,
-      timestamp: DateTime.now(),
-    ),
-    Transaction(
-      description: 'Coffee',
-      category: 'wants',
-      amount: -10.00,
-      timestamp: DateTime.now(),
-    ),
-    Transaction(
-      description: 'Salary',
-      category: 'income',
-      amount: 100.00,
-      timestamp: DateTime.now(),
-    ),
-  ];
-
+  final List<Transaction> _transactions = [];
   String _filter = 'All';
 
   void _addTransaction() {
-    // TODO: implement navigation or dialog for adding a new transaction
+    String description = '';
+    String amountText = '';
+    String selectedCategory = 'Needs';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Add Transaction'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: const InputDecoration(labelText: 'Description'),
+                onChanged: (val) => description = val,
+              ),
+              TextField(
+                decoration: const InputDecoration(labelText: 'Amount'),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => amountText = val,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: ['Needs', 'Wants'].map((cat) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: selectedCategory == cat,
+                      onSelected: (_) {
+                        setModalState(() {
+                          selectedCategory = cat;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(amountText) ?? 0;
+                if (description.isNotEmpty && amount != 0) {
+                  setState(() {
+                    _transactions.add(Transaction(
+                      description: description,
+                      category: selectedCategory.toLowerCase(),
+                      amount: amount,
+                      timestamp: DateTime.now(),
+                    ));
+                  });
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _completeTransaction(int index) {
+    setState(() {
+      _transactions.removeAt(index);
+    });
+    // TODO: move this transaction into the permanent log
   }
 
   @override
@@ -73,10 +126,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
     final filtered = _filter == 'All'
         ? todaysTransactions
         : todaysTransactions
-        .where((t) =>
-    _filter == 'Income'
-        ? t.amount > 0
-        : t.category.toLowerCase() == _filter.toLowerCase())
+        .where((t) => t.category.toLowerCase() == _filter.toLowerCase())
         .toList();
 
     return Scaffold(
@@ -86,7 +136,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
       ),
       body: Column(
         children: [
-          // Summary metricsw
+          // Summary metrics
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             child: Row(
@@ -98,7 +148,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     const Text('Saved Today', style: TextStyle(fontSize: 16)),
                     Text(
                       NumberFormat.simpleCurrency(locale: 'id_ID')
-                          .format(totalIncome + (totalSpent.abs() * 0)),
+                          .format(totalIncome),
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
@@ -137,7 +187,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: ['All', 'Needs', 'Wants', 'Income']
+              children: ['All', 'Needs', 'Wants']
                   .map(
                     (f) => Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -163,21 +213,28 @@ class _PlanningsPageState extends State<PlanningsPage> {
               itemBuilder: (ctx, i) {
                 final tx = filtered[i];
                 return ListTile(
-                  leading: Icon(
-                    tx.amount > 0 ? Icons.arrow_downward : Icons.arrow_upward,
-                    color: tx.amount > 0 ? Colors.green : Colors.red,
-                  ),
                   title: Text(tx.description),
                   subtitle: Text(
                     DateFormat('hh:mm a').format(tx.timestamp),
                   ),
-                  trailing: Text(
-                    NumberFormat.simpleCurrency(locale: 'id_ID')
-                        .format(tx.amount),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: tx.amount > 0 ? Colors.green : Colors.red,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        NumberFormat.simpleCurrency(locale: 'id_ID')
+                            .format(tx.amount),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: tx.amount > 0
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.check_circle_outline),
+                        onPressed: () => _completeTransaction(i),
+                      ),
+                    ],
                   ),
                 );
               },
