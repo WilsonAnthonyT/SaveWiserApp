@@ -551,6 +551,11 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
             ? todayOnly.difference(goalOnly).inDays
             : null;
 
+        print("All TX count: ${allTransactions.length}");
+        print("Raw Savings: $rawSavings");
+        print("Baseline: $baseline");
+        print("Total Savings: $totalSavings");
+
         String feedbackMessage = '';
         if (hasReachedGoal && goalDate != null) {
           if (diffDays! < 0) {
@@ -636,7 +641,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                   label: const Text("Start New Goal"),
                 ),
               ],
-              // ⚠️ Warn if user keeps saving without resetting
+
               if (hasReachedGoal && _targetAmount.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Container(

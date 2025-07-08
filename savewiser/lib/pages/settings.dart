@@ -406,14 +406,12 @@ class _SettingsPageState extends State<SettingsPage> {
           _sectionCard(
             title: "Helpline / Support",
             children: [
-              _supportText("Phone", "+65 8871 8268"),
+              _supportText("Phone", "Not Available"),
               _supportText("Email", "support@savewiser.com"),
               ListTile(
                 leading: const Icon(Icons.chat_bubble_outline),
-                title: const Text("Live Chat: Available 24/7"),
-                subtitle: const Text(
-                  "Click Here and wait for one of our staff to address your concerns",
-                ),
+                title: const Text("Live Chat: Currently Not Available"),
+                subtitle: const Text("Service Not Available"),
                 onTap: () {
                   // trigger live chat action or navigation
                 },

@@ -16,11 +16,11 @@ class TermsPage extends StatelessWidget {
                 child: Text('''
 Privacy Policy & Terms
 
-1. **Data Collection**: This app collects only the data you provide directly. We do not share your data with third parties without consent.
+1. **Data Collection**: This app collects only the data you provide directly. We do not hold user's data nor shared user's data with any third parties without consent.
 
 2. **Purpose**: Your data is used solely for providing financial tracking and insights.
 
-3. **Storage**: All data is stored securely on your device or trusted cloud storage.
+3. **Storage**: All data is stored securely on your device locally.
 
 4. **Security**: We implement standard security measures, but users are responsible for keeping their login credentials private.
 

@@ -209,6 +209,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                         ),
                       ),
                     );
+
                     final txWidgets = entry.value.map((tx) {
                       final isIncome = tx['type'] == 'Income';
 
