@@ -117,6 +117,18 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
         .fold(0.0, (sum, tx) => sum + tx.amount.abs());
   }
 
+  double getThisMonthUsableIncome(int year, int month) {
+    final txs = _box.values.toList();
+    return txs
+        .where(
+          (tx) =>
+              tx.transactionType == 'Income' &&
+              tx.year == year &&
+              tx.month == month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
   double getSpendingOnDay(int year, int month, int day) {
     final transactions = _box.values.toList();
     return transactions
@@ -127,7 +139,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
               tx.month == month &&
               tx.date == day,
         )
-        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
   }
 
   double getTotalOverspentUntilToday() {
@@ -150,11 +162,10 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
 
   double getAdjustedTodayLimit() {
     final now = DateTime.now();
-    final income = getThisMonthIncome(now.year, now.month);
+    final totalUsableIncome = getThisMonthUsableIncome(now.year, now.month);
     final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
 
-    // Sum all spending before today
-    final spentSoFar = _box.values
+    final spentBeforeToday = _box.values
         .where(
           (tx) =>
               tx.transactionType == 'Expense' &&
@@ -163,14 +174,14 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
               tx.date != null &&
               tx.date! < now.day,
         )
-        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
 
-    final remainingIncome = income - spentSoFar;
+    final remainingUsable = totalUsableIncome - spentBeforeToday;
     final remainingDays = daysInMonth - now.day + 1;
 
-    if (remainingIncome <= 0 || remainingDays <= 0) return 0.0;
+    if (remainingUsable <= 0 || remainingDays <= 0) return 0.0;
 
-    return remainingIncome / remainingDays;
+    return remainingUsable / remainingDays;
   }
 
   void _addTransaction() async {
@@ -263,9 +274,9 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       final now = DateTime.now();
       final todaySpent = getSpendingOnDay(now.year, now.month, now.day);
       final todayLimit = getAdjustedTodayLimit();
+      final usableIncome = getThisMonthUsableIncome(now.year, now.month);
 
-      if (getThisMonthIncome(now.year, now.month) > 0 &&
-          todaySpent > todayLimit) {
+      if (usableIncome > 0 && todaySpent > todayLimit) {
         await NotificationService().showNow(
           id: 1,
           title: "Overspending Alert!",
