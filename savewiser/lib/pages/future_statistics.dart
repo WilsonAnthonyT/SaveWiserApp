@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 import 'dart:math';
 
 import 'api_service.dart'; // Contains your ApiService.fetchAdvice()
@@ -24,6 +25,8 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
   String? _advice;
   bool _isLoading = false;
+  late double pace;
+  late String _goalDateText;
 
   final Random rng = Random();
 
@@ -32,13 +35,68 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     super.initState();
     _refreshData();
     _fetchAdvice();
+    final stats = _computeSavingsStats();
+    final goalDate = _estimateGoalDate(stats[0], stats[1], 10000);
+    final formatted = DateFormat.yMMMMd().format(goalDate);
+    setState(() {
+      _goalDateText = '$formatted';
+    });
+
+  }
+
+  List<double> _computeSavingsStats() {
+    final box = Hive.box<Transaction>('transactions');
+
+    double totalSaved = 0.0;
+    for (final txn in box.values) {
+      totalSaved += txn.amount;
+    }
+
+    // 3) Figure out how many months span your data:
+    //    find earliest txn and today
+    final dates = box.values.map((t) => DateTime(t.year, t.month)).toList()
+      ..sort();
+    final start = dates.first;
+    final now   = DateTime.now();
+    final monthsSpan =
+        (now.year - start.year) * 12 +
+        (now.month - start.month) +
+        1; // +1 so a single-month period counts as 1
+
+    // 4) Compute pace in ₱/month:
+    final pace = totalSaved / monthsSpan;
+
+    return [totalSaved, pace];
+  }
+
+  DateTime _estimateGoalDate(double currentSaved, double monthlyPace, double goalAmount) {
+    if (monthlyPace <= 0) {
+      // no pace → can’t predict; just return “never”
+      return DateTime(9999);
+    }
+    final remaining = goalAmount - currentSaved;
+    if (remaining <= 0) {
+      // already there!
+      return DateTime.now();
+    }
+    // how many months (rounded up):
+    final monthsNeeded = (remaining / monthlyPace).ceil();
+
+    final now = DateTime.now();
+    // roll forward that many months (day=1 for simplicity)
+    return DateTime(now.year, now.month + monthsNeeded, 1);
   }
 
   Future<void> _refreshData() async {
     final box = Hive.box<Transaction>('transactions');
     double startingPercentage = 20;
     final freshSeries = {for (var y in years) y: List.generate(12, 
-    (_) { final val = startingPercentage + (rng.nextDouble() * 10 - 5); return val.clamp(0.0, 100.0);})};
+      (_) {
+          final val = startingPercentage + (rng.nextDouble() * 6 - 3);
+          return val.clamp(0.0, 100.0);
+        }
+      )
+    };
     
 
     for (final txn in box.values) {
@@ -251,7 +309,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
                 children: [
                   const TextSpan(text: 'At your current pace, you\'ll reach your goal by '),
                   TextSpan(
-                    text: 'October 18, 2026.',
+                    text: '$_goalDateText.',
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
                   ),
                 ],
