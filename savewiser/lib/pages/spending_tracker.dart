@@ -23,6 +23,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   bool _isBoxReady = false;
   int _autoLockPct = 10; // default to 10%
   bool _guardEnable = false;
+  bool _homeNotifications = true;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     _guardEnable = prefs.getBool('guardianEnabled') ?? false;
+    _homeNotifications = prefs.getBool('homeNotifications') ?? true;
     if (_guardEnable) {
       _autoLockPct = prefs.getInt('autoLockPct') ?? 0;
     } else {
@@ -277,12 +279,14 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       final usableIncome = getThisMonthUsableIncome(now.year, now.month);
 
       if (usableIncome > 0 && todaySpent > todayLimit) {
-        await NotificationService().showNow(
-          id: 1,
-          title: "Overspending Alert!",
-          body:
-              "You've spent ${currencyFormatter.format(todaySpent)} today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
-        );
+        if (_homeNotifications) {
+          NotificationService().showNow(
+            id: 1,
+            title: "Overspending Alert!",
+            body:
+                "You've spent ${currencyFormatter.format(todaySpent)} today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
+          );
+        }
       }
     }
 

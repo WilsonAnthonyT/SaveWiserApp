@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import 'transaction_list.dart';
 import 'spending_tracker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final currencyFormatter = NumberFormat.decimalPattern();
 
@@ -41,12 +42,31 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   late Box<Transaction> _box;
   late List<MonthYear> _recentMonths;
   late MonthYear _selectedMonthYear;
+  String _targetAmount = '';
+  bool _homeNotifications = true;
 
   @override
   void initState() {
     super.initState();
     _box = Hive.box<Transaction>('transactions');
     _refreshMonths();
+    _loadPrefs();
+  }
+
+  @override
+  void didUpdateWidget(covariant CurrentSavingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadPrefs(); // or _loadTargetAmount()
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final loaded = prefs.getString('amount') ?? '';
+    //print('🎯 Loaded target amount: $loaded'); // Debug
+    setState(() {
+      _targetAmount = loaded;
+      _homeNotifications = prefs.getBool('homeNotifications') ?? true;
+    });
   }
 
   void _refreshMonths() {
@@ -228,6 +248,8 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       label: const Text("See Transaction History"),
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  _buildSavingsCard(allTx),
                 ],
               ),
             ),
@@ -410,6 +432,66 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
               fontWeight: FontWeight.bold,
               color: color,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavingsCard(List<Transaction> allTransactions) {
+    final totalSavings = allTransactions
+        .where(
+          (tx) => tx.transactionType == 'Expense' && tx.category == 'Savings',
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Total Saved (All Time)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${currencyFormatter.format(totalSavings)} IDR',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.teal,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              const Text(
+                "Savings Goal: ",
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                _targetAmount.isNotEmpty
+                    ? '${currencyFormatter.format(double.tryParse(_targetAmount.replaceAll(',', '')) ?? 0)} IDR'
+                    : 'Not Set',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
+              ),
+            ],
           ),
         ],
       ),
