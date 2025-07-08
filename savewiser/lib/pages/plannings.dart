@@ -1,21 +1,40 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Simple transaction model
 typedef Category = String;
 
 class Transaction {
-  final String description;
+  final String name;
   final Category category;
   final double amount;
   final DateTime timestamp;
 
   Transaction({
-    required this.description,
+    required this.name,
     required this.category,
     required this.amount,
     required this.timestamp,
   });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'category': category,
+    'amount': amount,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory Transaction.fromJson(Map<String, dynamic> json) {
+    return Transaction(
+      name: json['name'],
+      category: json['category'],
+      amount: (json['amount'] as num).toDouble(),
+      timestamp: DateTime.parse(json['timestamp']),
+    );
+  }
 }
 
 class PlanningsPage extends StatefulWidget {
@@ -26,31 +45,130 @@ class PlanningsPage extends StatefulWidget {
 }
 
 class _PlanningsPageState extends State<PlanningsPage> {
-  final List<Transaction> _transactions = [
-    Transaction(
-      description: 'Breakfast',
-      category: 'needs',
-      amount: -15.00,
-      timestamp: DateTime.now(),
-    ),
-    Transaction(
-      description: 'Coffee',
-      category: 'wants',
-      amount: -10.00,
-      timestamp: DateTime.now(),
-    ),
-    Transaction(
-      description: 'Salary',
-      category: 'income',
-      amount: 100.00,
-      timestamp: DateTime.now(),
-    ),
-  ];
-
+  final List<Transaction> _transactions = [];
   String _filter = 'All';
+  late SharedPreferences _prefs;
+  static const _storageKey = 'daily_planner_transactions';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    _prefs = await SharedPreferences.getInstance();
+    final String? data = _prefs.getString(_storageKey);
+    if (data != null) {
+      final List<dynamic> list = jsonDecode(data);
+      setState(() {
+        _transactions.clear();
+        _transactions.addAll(
+          list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)),
+        );
+      });
+    }
+  }
+
+  Future<void> _saveTransactions() async {
+    final String data = jsonEncode(
+      _transactions.map((t) => t.toJson()).toList(),
+    );
+    await _prefs.setString(_storageKey, data);
+  }
 
   void _addTransaction() {
-    // TODO: implement navigation or dialog for adding a new transaction
+    String name = '';
+    String amountText = '';
+    String selectedCategory = 'Needs';
+    final amountController = TextEditingController();
+    final formatter = NumberFormat.decimalPattern('en_US');
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Add Transaction'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: const InputDecoration(labelText: 'Name'),
+                onChanged: (val) => name = val,
+              ),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(labelText: 'Amount'),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (val) {
+                  final numeric = val.replaceAll(',', '');
+                  if (numeric.isEmpty) return;
+                  final parsed = int.parse(numeric);
+                  final newText = formatter.format(parsed);
+                  setModalState(() {
+                    amountController.value = TextEditingValue(
+                      text: newText,
+                      selection: TextSelection.collapsed(offset: newText.length),
+                    );
+                  });
+                  amountText = numeric;
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: ['Needs', 'Wants'].map((cat) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: selectedCategory == cat,
+                      onSelected: (_) {
+                        setModalState(() {
+                          selectedCategory = cat;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(amountText) ?? 0;
+                if (name.isNotEmpty && amount != 0) {
+                  setState(() {
+                    _transactions.add(Transaction(
+                      name: name,
+                      category: selectedCategory.toLowerCase(),
+                      amount: amount,
+                      timestamp: DateTime.now(),
+                    ));
+                  });
+                  _saveTransactions();
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _completeTransaction(int index) {
+    setState(() {
+      _transactions.removeAt(index);
+    });
+    _saveTransactions();
   }
 
   @override
@@ -73,10 +191,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
     final filtered = _filter == 'All'
         ? todaysTransactions
         : todaysTransactions
-        .where((t) =>
-    _filter == 'Income'
-        ? t.amount > 0
-        : t.category.toLowerCase() == _filter.toLowerCase())
+        .where((t) => t.category.toLowerCase() == _filter.toLowerCase())
         .toList();
 
     return Scaffold(
@@ -86,7 +201,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
       ),
       body: Column(
         children: [
-          // Summary metricsw
+          // Summary metrics
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             child: Row(
@@ -98,7 +213,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     const Text('Saved Today', style: TextStyle(fontSize: 16)),
                     Text(
                       NumberFormat.simpleCurrency(locale: 'id_ID')
-                          .format(totalIncome + (totalSpent.abs() * 0)),
+                          .format(totalIncome),
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
@@ -137,7 +252,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: ['All', 'Needs', 'Wants', 'Income']
+              children: ['All', 'Needs', 'Wants']
                   .map(
                     (f) => Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -157,27 +272,34 @@ class _PlanningsPageState extends State<PlanningsPage> {
           // Transaction list
           Expanded(
             child: filtered.isEmpty
-                ? const Center(child: Text('No transactions for today.'))
+                ? const Center(child: Text('No plans for today.'))
                 : ListView.builder(
               itemCount: filtered.length,
               itemBuilder: (ctx, i) {
                 final tx = filtered[i];
                 return ListTile(
-                  leading: Icon(
-                    tx.amount > 0 ? Icons.arrow_downward : Icons.arrow_upward,
-                    color: tx.amount > 0 ? Colors.green : Colors.red,
-                  ),
-                  title: Text(tx.description),
+                  title: Text(tx.name),
                   subtitle: Text(
                     DateFormat('hh:mm a').format(tx.timestamp),
                   ),
-                  trailing: Text(
-                    NumberFormat.simpleCurrency(locale: 'id_ID')
-                        .format(tx.amount),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: tx.amount > 0 ? Colors.green : Colors.red,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        NumberFormat.simpleCurrency(locale: 'id_ID')
+                            .format(tx.amount),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: tx.amount > 0
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.check_circle_outline),
+                        onPressed: () => _completeTransaction(i),
+                      ),
+                    ],
                   ),
                 );
               },
