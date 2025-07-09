@@ -71,14 +71,18 @@ class _HomePageState extends State<HomePage> {
       ..sort((a, b) {
         final aDate = DateTime(a.year, a.month, a.date ?? 1);
         final bDate = DateTime(b.year, b.month, b.date ?? 1);
-        return aDate.compareTo(bDate); // newest first
+        return aDate.compareTo(bDate); // oldest first
       });
+
+    final lastThree = recent.length >= 3
+        ? recent.sublist(recent.length - 3)
+        : recent;
 
     setState(() {
       _categoryTotals = totals;
       _statusLabel = isOnTrack ? "On Track" : "Off Track";
       _statusColor = isOnTrack ? Colors.green : Colors.red;
-      _recentExpenses = recent.take(3).toList();
+      _recentExpenses = lastThree.reversed.toList(); // newest at the top
     });
   }
 

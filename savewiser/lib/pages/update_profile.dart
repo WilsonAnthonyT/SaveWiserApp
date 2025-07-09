@@ -190,6 +190,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                   TextFormField(
                     controller: _fullNameCtrl,
                     decoration: _inputDecoration('Full Name'),
+                    maxLength: 50,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
@@ -213,6 +221,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                   TextFormField(
                     controller: _locationCtrl,
                     decoration: _inputDecoration('Location'),
+                    maxLength: 50,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
@@ -223,6 +239,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     decoration: _inputDecoration('Phone Number'),
+                    maxLength: 15,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
@@ -263,6 +287,13 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                       child: TextFormField(
                         controller: _goalDateCtrl,
                         decoration: _inputDecoration('Goal Date'),
+                        buildCounter:
+                            (
+                              _, {
+                              required currentLength,
+                              required isFocused,
+                              maxLength,
+                            }) => null,
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
@@ -275,6 +306,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                     controller: _savingCtrl,
                     keyboardType: TextInputType.number,
                     decoration: _inputDecoration('Target Savings'),
+                    maxLength: 18,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       ThousandsSeparatorInputFormatter(), // or 'en'
@@ -288,6 +327,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                   TextFormField(
                     controller: _targetCtrl,
                     decoration: _inputDecoration('Savings Purpose'),
+                    maxLength: 50,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
