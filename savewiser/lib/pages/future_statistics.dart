@@ -43,7 +43,11 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     final stats = _computeSavingsStats();
     moneySaved = stats[0];
     pace = stats[1];
-    final goalDate = _estimateGoalDate(stats[0], stats[1], double.tryParse(moneyGoal.replaceAll(",", "")) ?? 0);
+    final goalDate = _estimateGoalDate(
+      stats[0],
+      stats[1],
+      double.tryParse(moneyGoal.replaceAll(",", "")) ?? 0,
+    );
     final formatted = DateFormat.yMMMMd().format(goalDate);
 
     setState(() {
@@ -58,8 +62,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
     _refreshData();
     _fetchAdvice();
     _getPreference();
-    setState(() {
-    });
+    setState(() {});
   }
 
   double _niceInterval(double maxY) {
@@ -84,6 +87,11 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
   List<double> _computeSavingsStats() {
     final box = Hive.box<Transaction>('transactions');
+
+    if (box.isEmpty) {
+      // No data, return zero savings and pace
+      return [0.0, 0.0];
+    }
 
     double totalSaved = 0.0;
     for (final txn in box.values) {
@@ -184,7 +192,12 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   Future<void> _fetchAdvice() async {
     setState(() => _isLoading = true);
     try {
-      final resp = await ApiService().fetchAdvice(moneySaved, mygoal, pace, moneyGoal);
+      final resp = await ApiService().fetchAdvice(
+        moneySaved,
+        mygoal,
+        pace,
+        moneyGoal,
+      );
       if (!mounted) return;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final content =

@@ -17,6 +17,7 @@ import 'services/notification_schedule.dart';
 //import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'models/transaction.dart';
+import 'models/goals.dart';
 
 //firebase
 // import 'package:firebase_core/firebase_core.dart';
@@ -46,8 +47,10 @@ void main() async {
   }
 
   Hive.registerAdapter(TransactionAdapter());
+  Hive.registerAdapter(GoalAdapter());
   //await Hive.deleteBoxFromDisk('transactions');
   await Hive.openBox<Transaction>('transactions');
+  await Hive.openBox<Goal>('goals');
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);

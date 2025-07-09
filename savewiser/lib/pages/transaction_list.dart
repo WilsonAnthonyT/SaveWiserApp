@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import '../models/transaction.dart';
 import 'profile_page.dart';
 import 'spending_tracker.dart';
+import '../utils/recalculate_balance.dart';
 
 final currencyFormatter = NumberFormat.decimalPattern();
 
@@ -243,12 +244,17 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           ),
                         ),
                         onLongPress: () async {
+                          bool isSavingsTx =
+                              tx['type'] == 'Expense' &&
+                              tx['category'] == 'Savings';
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
                               title: const Text("Delete this transaction?"),
-                              content: const Text(
-                                "This action cannot be undone.",
+                              content: Text(
+                                isSavingsTx
+                                    ? "⚠️ This is a savings transaction. Deleting it may affect your savings progress. Continue?"
+                                    : "This action cannot be undone.",
                               ),
                               actions: [
                                 TextButton(

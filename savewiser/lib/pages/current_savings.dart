@@ -528,8 +528,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
 
         final prefs = snapshot.data!;
         final baseline = prefs.getDouble('savingsBaseline') ?? 0.0;
-
-        final totalSavings = (rawSavings - baseline).clamp(0, double.infinity);
+        final totalSavings = rawSavings - baseline;
 
         final goalDateStr = prefs.getString('goalDate') ?? '';
         DateTime? goalDate;
@@ -551,11 +550,6 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
             ? todayOnly.difference(goalOnly).inDays
             : null;
 
-        print("All TX count: ${allTransactions.length}");
-        print("Raw Savings: $rawSavings");
-        print("Baseline: $baseline");
-        print("Total Savings: $totalSavings");
-
         String feedbackMessage = '';
         if (hasReachedGoal && goalDate != null) {
           if (diffDays! < 0) {
@@ -567,6 +561,8 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
             feedbackMessage = "✅ Goal achieved ${diffDays} days late!";
           }
         }
+
+        final hasDeficit = totalSavings < 0;
 
         return Container(
           width: double.infinity,
@@ -598,12 +594,65 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
               const SizedBox(height: 6),
               Text(
                 '${currencyFormatter.format(totalSavings)} IDR',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.teal,
+                  color: totalSavings >= 0 ? Colors.teal : Colors.red,
                 ),
               ),
+
+              if (hasDeficit) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.warning, color: Colors.red),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "⚠️ You’re currently in a savings deficit.\nDid you delete past savings transactions? You can either make up for it or reset your baseline.",
+                              style: TextStyle(fontSize: 13, color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade400,
+                          ),
+                          icon: const Icon(Icons.restart_alt),
+                          label: const Text("Reset Baseline"),
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setDouble(
+                              'savingsBaseline',
+                              rawSavings,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Baseline has been reset."),
+                              ),
+                            );
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
