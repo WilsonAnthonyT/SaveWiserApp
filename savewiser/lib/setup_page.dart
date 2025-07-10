@@ -174,6 +174,14 @@ class _SetupStep0State extends State<SetupStep0> {
                   // Full Name
                   TextFormField(
                     controller: _fullNameCtrl,
+                    maxLength: 50,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     decoration: InputDecoration(
                       labelText: 'Full Name',
                       filled: true,
@@ -213,6 +221,14 @@ class _SetupStep0State extends State<SetupStep0> {
                   // Location
                   TextFormField(
                     controller: _locationCtrl,
+                    maxLength: 50,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     decoration: InputDecoration(
                       labelText: 'Location',
                       filled: true,
@@ -231,6 +247,14 @@ class _SetupStep0State extends State<SetupStep0> {
                   TextFormField(
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
+                    maxLength: 15,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
                       filled: true,
@@ -685,6 +709,14 @@ class _SetupStep1State extends State<SetupStep1> {
                               Expanded(
                                 child: TextFormField(
                                   controller: _purposeCtrl,
+                                  maxLength: 50,
+                                  buildCounter:
+                                      (
+                                        _, {
+                                        required currentLength,
+                                        required isFocused,
+                                        maxLength,
+                                      }) => null,
                                   decoration: const InputDecoration.collapsed(
                                     hintText: 'Tuition Fees',
                                   ),
@@ -715,7 +747,7 @@ class _SetupStep1State extends State<SetupStep1> {
                                 children: [
                                   // Static currency label
                                   Text(
-                                    'Rp',
+                                    'IDR',
                                     style: const TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
@@ -729,6 +761,14 @@ class _SetupStep1State extends State<SetupStep1> {
                                     child: TextFormField(
                                       controller: _amountCtrl,
                                       keyboardType: TextInputType.number,
+                                      maxLength: 19,
+                                      buildCounter:
+                                          (
+                                            _, {
+                                            required currentLength,
+                                            required isFocused,
+                                            maxLength,
+                                          }) => null,
                                       inputFormatters: [
                                         FilteringTextInputFormatter.digitsOnly,
                                         ThousandsSeparatorInputFormatter(),
@@ -1380,6 +1420,14 @@ class _SetupStep3State extends State<SetupStep3> {
                           // Guardian Name
                           TextField(
                             controller: _nameCtrl,
+                            maxLength: 50,
+                            buildCounter:
+                                (
+                                  _, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) => null,
                             decoration: InputDecoration(
                               hintText: 'Guardian Name',
                               filled: true,
@@ -1396,6 +1444,14 @@ class _SetupStep3State extends State<SetupStep3> {
                           TextField(
                             controller: _phoneCtrl,
                             keyboardType: TextInputType.phone,
+                            maxLength: 15,
+                            buildCounter:
+                                (
+                                  _, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) => null,
                             decoration: InputDecoration(
                               hintText: 'Phone Number',
                               filled: true,
