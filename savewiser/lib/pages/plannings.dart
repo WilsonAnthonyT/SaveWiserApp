@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/transaction.dart' as HiveTransaction;
+import 'spending_tracker.dart';
 
-// Simple transaction model
 typedef Category = String;
 
 class Transaction {
@@ -77,6 +79,38 @@ class _PlanningsPageState extends State<PlanningsPage> {
     await _prefs.setString(_storageKey, data);
   }
 
+  Future<void> _completeTransaction(int index) async {
+    final localTx = _transactions[index];
+
+    // 1️⃣ add to Hive 'transactions' box
+    final box = Hive.box<HiveTransaction.Transaction>('transactions');
+    await box.add(
+      HiveTransaction.Transaction(
+        category: localTx.category,
+        amount: localTx.amount.abs(),
+        month: localTx.timestamp.month,
+        year: localTx.timestamp.year,
+        date: localTx.timestamp.day,
+        transactionType: localTx.amount > 0 ? 'Income' : 'Expense',
+        description: localTx.name,
+        currency: 'IDR',
+        cpfPortion: 0,
+        usablePortion: localTx.amount.abs(),
+      ),
+    );
+
+    // 2️⃣ remove from planning list & persist
+    setState(() => _transactions.removeAt(index));
+    await _saveTransactions();
+
+    // 3️⃣ feedback
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('“${localTx.name}” moved to Transaction History')),
+      );
+    }
+  }
+
   void _addTransaction() {
     String name = '';
     String amountText = '';
@@ -124,11 +158,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     child: ChoiceChip(
                       label: Text(cat),
                       selected: selectedCategory == cat,
-                      onSelected: (_) {
-                        setModalState(() {
-                          selectedCategory = cat;
-                        });
-                      },
+                      onSelected: (_) => setModalState(() => selectedCategory = cat),
                     ),
                   );
                 }).toList(),
@@ -148,7 +178,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     _transactions.add(Transaction(
                       name: name,
                       category: selectedCategory.toLowerCase(),
-                      amount: amount,
+                      amount: selectedCategory.toLowerCase() == 'needs' ? -amount : amount,
                       timestamp: DateTime.now(),
                     ));
                   });
@@ -162,13 +192,6 @@ class _PlanningsPageState extends State<PlanningsPage> {
         ),
       ),
     );
-  }
-
-  void _completeTransaction(int index) {
-    setState(() {
-      _transactions.removeAt(index);
-    });
-    _saveTransactions();
   }
 
   @override
@@ -212,10 +235,8 @@ class _PlanningsPageState extends State<PlanningsPage> {
                   children: [
                     const Text('Saved Today', style: TextStyle(fontSize: 16)),
                     Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID')
-                          .format(totalIncome),
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      NumberFormat.simpleCurrency(locale: 'id_ID').format(totalIncome),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -224,10 +245,8 @@ class _PlanningsPageState extends State<PlanningsPage> {
                   children: [
                     const Text('Spent Today', style: TextStyle(fontSize: 16)),
                     Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID')
-                          .format(totalSpent),
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      NumberFormat.simpleCurrency(locale: 'id_ID').format(totalSpent),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -236,16 +255,15 @@ class _PlanningsPageState extends State<PlanningsPage> {
                   children: [
                     const Text('Net', style: TextStyle(fontSize: 16)),
                     Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID')
-                          .format(net),
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      NumberFormat.simpleCurrency(locale: 'id_ID').format(net),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ],
             ),
           ),
+
           // Filters
           Container(
             height: 40,
@@ -253,23 +271,20 @@ class _PlanningsPageState extends State<PlanningsPage> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: ['All', 'Needs', 'Wants']
-                  .map(
-                    (f) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(f),
-                    selected: _filter == f,
-                    onSelected: (_) {
-                      setState(() => _filter = f);
-                    },
-                  ),
+                  .map((f) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(f),
+                  selected: _filter == f,
+                  onSelected: (_) => setState(() => _filter = f),
                 ),
-              )
+              ))
                   .toList(),
             ),
           ),
           const SizedBox(height: 8),
-          // Transaction list
+
+          // Plan list with checklist
           Expanded(
             child: filtered.isEmpty
                 ? const Center(child: Text('No plans for today.'))
@@ -279,20 +294,15 @@ class _PlanningsPageState extends State<PlanningsPage> {
                 final tx = filtered[i];
                 return ListTile(
                   title: Text(tx.name),
-                  subtitle: Text(
-                    DateFormat('hh:mm a').format(tx.timestamp),
-                  ),
+                  subtitle: Text(DateFormat('hh:mm a').format(tx.timestamp)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        NumberFormat.simpleCurrency(locale: 'id_ID')
-                            .format(tx.amount),
+                        NumberFormat.simpleCurrency(locale: 'id_ID').format(tx.amount),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: tx.amount > 0
-                              ? Colors.green
-                              : Colors.red,
+                          color: tx.amount > 0 ? Colors.green : Colors.red,
                         ),
                       ),
                       IconButton(
