@@ -232,7 +232,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       if (usableBalance < amount) {
         double remainingAmount = amount - usableBalance;
         bool cpfApproved = false;
-        cpfApproved = await _promptForCfpApproval(remainingAmount);
+        cpfApproved = await _promptForCpfApproval(remainingAmount);
         if (!cpfApproved) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -301,7 +301,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   }
 
   // Function to prompt for CPF approval
-  Future<bool> _promptForCfpApproval(double remainingAmount) async {
+  Future<bool> _promptForCpfApproval(double remainingAmount) async {
     final prefs = await SharedPreferences.getInstance();
     final guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
     final storedPasscode = prefs.getString('guardianPasscode') ?? '';

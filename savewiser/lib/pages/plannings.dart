@@ -61,54 +61,275 @@ class _PlanningsPageState extends State<PlanningsPage> {
   Future<void> _loadTransactions() async {
     _prefs = await SharedPreferences.getInstance();
     final String? data = _prefs.getString(_storageKey);
+
     if (data != null) {
       final List<dynamic> list = jsonDecode(data);
+      final today = DateTime.now();
+
+      final todayOnly = list
+          .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+          .where(
+            (tx) =>
+                tx.timestamp.year == today.year &&
+                tx.timestamp.month == today.month &&
+                tx.timestamp.day == today.day,
+          )
+          .toList();
+
       setState(() {
-        _transactions.clear();
-        _transactions.addAll(
-          list.map((e) => Transaction.fromJson(e as Map<String, dynamic>)),
-        );
+        _transactions
+          ..clear()
+          ..addAll(todayOnly);
       });
     }
   }
 
   Future<void> _saveTransactions() async {
-    final String data = jsonEncode(
-      _transactions.map((t) => t.toJson()).toList(),
-    );
+    final today = DateTime.now();
+    final todayOnly = _transactions
+        .where(
+          (tx) =>
+              tx.timestamp.year == today.year &&
+              tx.timestamp.month == today.month &&
+              tx.timestamp.day == today.day,
+        )
+        .toList();
+
+    final String data = jsonEncode(todayOnly.map((t) => t.toJson()).toList());
     await _prefs.setString(_storageKey, data);
   }
 
   Future<void> _completeTransaction(int index) async {
     final localTx = _transactions[index];
-
-    // 1️⃣ add to Hive 'transactions' box
     final box = Hive.box<HiveTransaction.Transaction>('transactions');
+
+    final isSpending = localTx.amount < 0;
+
+    double cpfPortion = 0.0;
+    double usablePortion = 0.0;
+
+    if (isSpending) {
+      final balance = getCurrentBalance(box);
+      final usableBalance = getUsableBalance(box);
+      final cpfBalance = getCpfBalance(box);
+      final spendingAmount = localTx.amount.abs();
+
+      if (spendingAmount > balance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "🚫 Your total balance is insufficient for this plan.",
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (usableBalance < spendingAmount) {
+        double cpfNeeded = spendingAmount - usableBalance;
+
+        bool approved = await _promptForCpfApproval(cpfNeeded);
+        if (!approved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("🛑 Guardian approval required to use CPF."),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        usablePortion = -usableBalance.abs();
+        cpfPortion = -cpfNeeded.abs();
+      } else {
+        usablePortion = -spendingAmount;
+        cpfPortion = 0.0;
+      }
+    } else {
+      // Income
+      final prefs = await SharedPreferences.getInstance();
+      final guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
+      final autoLockPct = guardianEnabled
+          ? prefs.getInt('autoLockPct') ?? 0
+          : 0;
+
+      cpfPortion = localTx.amount * autoLockPct / 100.0;
+      usablePortion = localTx.amount - cpfPortion;
+    }
+
+    // Save to Hive
     await box.add(
       HiveTransaction.Transaction(
         category: localTx.category,
-        amount: localTx.amount.abs(),
+        amount: localTx.amount,
         month: localTx.timestamp.month,
         year: localTx.timestamp.year,
         date: localTx.timestamp.day,
         transactionType: localTx.amount > 0 ? 'Income' : 'Expense',
         description: localTx.name,
         currency: 'IDR',
-        cpfPortion: 0,
-        usablePortion: localTx.amount.abs(),
+        cpfPortion: cpfPortion,
+        usablePortion: usablePortion,
       ),
     );
 
-    // 2️⃣ remove from planning list & persist
     setState(() => _transactions.removeAt(index));
     await _saveTransactions();
 
-    // 3️⃣ feedback
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('“${localTx.name}” moved to Transaction History')),
+        SnackBar(
+          content: Text('“${localTx.name}” moved to Transaction History'),
+        ),
       );
     }
+  }
+
+  double getCurrentBalance(Box<HiveTransaction.Transaction> box) {
+    return box.values.fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double getUsableBalance(Box<HiveTransaction.Transaction> box) {
+    return box.values.fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double getCpfBalance(Box<HiveTransaction.Transaction> box) {
+    return box.values.fold(0.0, (sum, tx) => sum + tx.cpfPortion);
+  }
+
+  Future<bool> _promptForCpfApproval(double remainingAmount) async {
+    final prefs = await SharedPreferences.getInstance();
+    final guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
+    final storedPasscode = prefs.getString('guardianPasscode') ?? '';
+
+    final approved =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Use CPF Funds'),
+            content: Text(
+              'Do you approve using ${NumberFormat.currency(locale: 'id_ID').format(remainingAmount)} from CPF savings?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Approve'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!approved || !guardianEnabled || storedPasscode.isEmpty)
+      return approved;
+
+    return await _verifyGuardianPasscodeDialog(storedPasscode);
+  }
+
+  Future<bool> _verifyGuardianPasscodeDialog(String correctPasscode) async {
+    final TextEditingController passCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Guardian Approval Required'),
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(
+            hintText: 'Enter Guardian Passcode',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, passCtrl.text.trim() == correctPasscode);
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect or missing guardian passcode')),
+      );
+    }
+
+    return result ?? false;
+  }
+
+  double getThisMonthUsableIncome(
+    Box<HiveTransaction.Transaction> box,
+    int year,
+    int month,
+  ) {
+    return box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Income' &&
+              tx.year == year &&
+              tx.month == month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double getSpendingOnDay(
+    Box<HiveTransaction.Transaction> box,
+    int year,
+    int month,
+    int day,
+  ) {
+    return box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == year &&
+              tx.month == month &&
+              tx.date == day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount.abs());
+  }
+
+  double getAdjustedTodayLimit(Box<HiveTransaction.Transaction> box) {
+    final now = DateTime.now();
+    final totalUsableIncome = getThisMonthUsableIncome(
+      box,
+      now.year,
+      now.month,
+    );
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+
+    final spentBeforeToday = box.values
+        .where(
+          (tx) =>
+              tx.transactionType == 'Expense' &&
+              tx.year == now.year &&
+              tx.month == now.month &&
+              tx.date != null &&
+              tx.date! < now.day,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
+
+    final remainingUsable = totalUsableIncome - spentBeforeToday;
+    final remainingDays = daysInMonth - now.day + 1;
+
+    if (remainingUsable <= 0 || remainingDays <= 0) return 0.0;
+
+    return remainingUsable / remainingDays;
   }
 
   void _addTransaction() {
@@ -129,12 +350,28 @@ class _PlanningsPageState extends State<PlanningsPage> {
               TextField(
                 decoration: const InputDecoration(labelText: 'Name'),
                 onChanged: (val) => name = val,
+                maxLength: 50,
+                buildCounter:
+                    (
+                      _, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
               ),
               TextField(
                 controller: amountController,
                 decoration: const InputDecoration(labelText: 'Amount'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                maxLength: 19,
+                buildCounter:
+                    (
+                      _, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 onChanged: (val) {
                   final numeric = val.replaceAll(',', '');
                   if (numeric.isEmpty) return;
@@ -143,7 +380,9 @@ class _PlanningsPageState extends State<PlanningsPage> {
                   setModalState(() {
                     amountController.value = TextEditingValue(
                       text: newText,
-                      selection: TextSelection.collapsed(offset: newText.length),
+                      selection: TextSelection.collapsed(
+                        offset: newText.length,
+                      ),
                     );
                   });
                   amountText = numeric;
@@ -158,7 +397,8 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     child: ChoiceChip(
                       label: Text(cat),
                       selected: selectedCategory == cat,
-                      onSelected: (_) => setModalState(() => selectedCategory = cat),
+                      onSelected: (_) =>
+                          setModalState(() => selectedCategory = cat),
                     ),
                   );
                 }).toList(),
@@ -175,12 +415,17 @@ class _PlanningsPageState extends State<PlanningsPage> {
                 final amount = double.tryParse(amountText) ?? 0;
                 if (name.isNotEmpty && amount != 0) {
                   setState(() {
-                    _transactions.add(Transaction(
-                      name: name,
-                      category: selectedCategory.toLowerCase(),
-                      amount: selectedCategory.toLowerCase() == 'needs' ? -amount : amount,
-                      timestamp: DateTime.now(),
-                    ));
+                    _transactions.add(
+                      Transaction(
+                        name: name,
+                        category: selectedCategory.toLowerCase(),
+                        amount: -amount,
+                        // selectedCategory.toLowerCase() == 'needs'
+                        //     ? -amount
+                        //     : amount,
+                        timestamp: DateTime.now(),
+                      ),
+                    );
                   });
                   _saveTransactions();
                   Navigator.of(context).pop();
@@ -214,53 +459,45 @@ class _PlanningsPageState extends State<PlanningsPage> {
     final filtered = _filter == 'All'
         ? todaysTransactions
         : todaysTransactions
-        .where((t) => t.category.toLowerCase() == _filter.toLowerCase())
-        .toList();
+              .where((t) => t.category.toLowerCase() == _filter.toLowerCase())
+              .toList();
+
+    final box = Hive.box<HiveTransaction.Transaction>('transactions');
+    final now = DateTime.now();
+    final usableIncome = getThisMonthUsableIncome(box, now.year, now.month);
+    final todaySpent = getSpendingOnDay(box, now.year, now.month, now.day);
+    final todayLimit = getAdjustedTodayLimit(box);
+    final isOverspent = usableIncome > 0 && todaySpent > todayLimit;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daily Plannings'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Daily Plannings'), centerTitle: true),
       body: Column(
         children: [
           // Summary metrics
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Saved Today', style: TextStyle(fontSize: 16)),
-                    Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID').format(totalIncome),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            child: Center(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.center, // Center text horizontally
+                children: [
+                  const Text(
+                    'Remaining Planned Spending:',
+                    style: TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center, // Just in case
+                  ),
+                  Text(
+                    NumberFormat.simpleCurrency(
+                      locale: 'id_ID',
+                    ).format(totalSpent),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Spent Today', style: TextStyle(fontSize: 16)),
-                    Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID').format(totalSpent),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Net', style: TextStyle(fontSize: 16)),
-                    Text(
-                      NumberFormat.simpleCurrency(locale: 'id_ID').format(net),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -271,49 +508,86 @@ class _PlanningsPageState extends State<PlanningsPage> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: ['All', 'Needs', 'Wants']
-                  .map((f) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(f),
-                  selected: _filter == f,
-                  onSelected: (_) => setState(() => _filter = f),
-                ),
-              ))
+                  .map(
+                    (f) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(f),
+                        selected: _filter == f,
+                        onSelected: (_) => setState(() => _filter = f),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
           const SizedBox(height: 8),
+          if (isOverspent)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Card(
+                color: Colors.red.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "⚠️ You’ve spent ${currencyFormatter.format(todaySpent)} today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Plan list with checklist
           Expanded(
             child: filtered.isEmpty
                 ? const Center(child: Text('No plans for today.'))
                 : ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (ctx, i) {
-                final tx = filtered[i];
-                return ListTile(
-                  title: Text(tx.name),
-                  subtitle: Text(DateFormat('hh:mm a').format(tx.timestamp)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        NumberFormat.simpleCurrency(locale: 'id_ID').format(tx.amount),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: tx.amount > 0 ? Colors.green : Colors.red,
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) {
+                      final tx = filtered[i];
+                      return ListTile(
+                        title: Text(tx.name),
+                        subtitle: Text(
+                          DateFormat('hh:mm a').format(tx.timestamp),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.check_circle_outline),
-                        onPressed: () => _completeTransaction(i),
-                      ),
-                    ],
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              NumberFormat.simpleCurrency(
+                                locale: 'id_ID',
+                              ).format(tx.amount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: tx.amount > 0
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.check_circle_outline),
+                              onPressed: () => _completeTransaction(i),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                setState(() => _transactions.removeAt(i));
+                                await _saveTransactions();
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),

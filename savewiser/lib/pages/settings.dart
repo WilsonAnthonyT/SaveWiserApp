@@ -428,6 +428,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 TextField(
                   controller: _guardianNameCtrl,
+                  maxLength: 50,
+                  buildCounter:
+                      (
+                        _, {
+                        required currentLength,
+                        required isFocused,
+                        maxLength,
+                      }) => null,
                   decoration: const InputDecoration(
                     labelText: "Guardian Name",
                     hintText: "e.g. Jane Doe",
@@ -437,6 +445,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _guardianPhoneCtrl,
+                  maxLength: 15,
+                  buildCounter:
+                      (
+                        _, {
+                        required currentLength,
+                        required isFocused,
+                        maxLength,
+                      }) => null,
                   decoration: const InputDecoration(
                     labelText: "Guardian Phone",
                     hintText: "e.g. +62 812-3456-7890",
