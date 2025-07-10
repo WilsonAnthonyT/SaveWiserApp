@@ -439,6 +439,14 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                maxLength: 20,
+                buildCounter:
+                    (
+                      _, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   ThousandsSeparatorInputFormatter(), // or 'en'
@@ -462,6 +470,14 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: "Description"),
+                maxLength: 50,
+                buildCounter:
+                    (
+                      _, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a description'; // Message to show if the field is empty

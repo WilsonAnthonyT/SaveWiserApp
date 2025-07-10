@@ -79,19 +79,26 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _guardianEnabled = false;
   final TextEditingController _guardianNameCtrl = TextEditingController();
   final TextEditingController _guardianPhoneCtrl = TextEditingController();
-  String _approvalMethod = 'SMS';
+  final TextEditingController _passcodeCtrl = TextEditingController();
+  bool _passcodeLocked = false;
+  bool _isConfirmEnabled = false;
+
+  String _approvalMethod = 'Passcode';
   int _autoLockPct = 10;
 
   @override
   void initState() {
     super.initState();
-    // Initialize filtered FAQs with all FAQs
     filteredFaqs = List.from(allFaqs);
-
-    // Listen to the search text changes
     searchController.addListener(_filterFaqs);
 
-    _loadPreferences(); // Start the countdown on init
+    _loadPreferences();
+    _passcodeCtrl.addListener(() {
+      final text = _passcodeCtrl.text;
+      setState(() {
+        _isConfirmEnabled = text.length >= 4 && !_passcodeLocked;
+      });
+    });
   }
 
   @override
@@ -102,6 +109,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    //await prefs.setString('approvalMethod', 'Passcode');
     setState(() {
       _homeNotifications = prefs.getBool('homeNotifications') ?? true;
       _isLoading = false;
@@ -114,7 +122,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
       _guardianNameCtrl.text = prefs.getString('guardianName') ?? '';
       _guardianPhoneCtrl.text = prefs.getString('guardianPhone') ?? '';
-      _approvalMethod = prefs.getString('approvalMethod') ?? 'SMS';
+      _approvalMethod = prefs.getString('approvalMethod') ?? 'Passcode';
+      _passcodeCtrl.text = prefs.getString('guardianPasscode') ?? '';
+      _passcodeLocked = _passcodeCtrl.text.isNotEmpty;
+      _isConfirmEnabled = _passcodeCtrl.text.length >= 4 && !_passcodeLocked;
     });
   }
 
@@ -158,13 +169,13 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   //cpf thing
-  Future<void> _enableGuardSettings() async {
+  Future<void> _saveGuardSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('guardianEnabled', _guardianEnabled);
     await prefs.setString('guardianName', _guardianNameCtrl.text);
     await prefs.setString('guardianPhone', _guardianPhoneCtrl.text);
-    await prefs.setString('approvalMethod', _approvalMethod);
+    await prefs.setString('approvalMethod', 'Passcode');
     await prefs.setInt('autoLockPct', _autoLockPct);
+    await prefs.setString('guardianPasscode', _passcodeCtrl.text);
   }
 
   void _openFaq(BuildContext context, String title, String content) {
@@ -210,6 +221,75 @@ class _SettingsPageState extends State<SettingsPage> {
       context,
       MaterialPageRoute(builder: (context) => const TermsPage()),
     );
+  }
+
+  Future<String> _showVerifyOldPasscodeDialog(BuildContext context) async {
+    final TextEditingController oldCtrl = TextEditingController();
+
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify Old Passcode'),
+        content: TextField(
+          controller: oldCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(
+            hintText: 'Enter current passcode',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(''),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(oldCtrl.text.trim());
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? '');
+  }
+
+  Future<String> _showNewPasscodeDialog(BuildContext context) async {
+    final TextEditingController newCtrl = TextEditingController();
+
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter New Passcode'),
+        content: TextField(
+          controller: newCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(
+            hintText: 'New 4-6 digit passcode',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(''),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final pass = newCtrl.text.trim();
+              if (pass.length >= 4) {
+                Navigator.of(context).pop(pass);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? '');
   }
 
   @override
@@ -338,21 +418,41 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               if (_guardianEnabled) ...[
+                const Divider(),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    "Guardian Details",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 TextField(
                   controller: _guardianNameCtrl,
-                  decoration: const InputDecoration(labelText: "Guardian Name"),
+                  decoration: const InputDecoration(
+                    labelText: "Guardian Name",
+                    hintText: "e.g. Jane Doe",
+                  ),
+                  onChanged: (value) => _saveGuardSettings(),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _guardianPhoneCtrl,
                   decoration: const InputDecoration(
                     labelText: "Guardian Phone",
+                    hintText: "e.g. +62 812-3456-7890",
                   ),
                   keyboardType: TextInputType.phone,
+                  onChanged: (value) => _saveGuardSettings(),
                 ),
-                const SizedBox(height: 8),
-
-                // 🔐 Auto-lock Percentage Dropdown
+                const SizedBox(height: 16),
+                const Divider(),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    "Approval Settings",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 DropdownButtonFormField<int>(
                   value: _autoLockPct,
                   items: [5, 10, 15, 20, 25, 30].map((pct) {
@@ -368,18 +468,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     labelText: "Auto-lock Percentage",
                   ),
                 ),
-
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _approvalMethod,
-                  items: ['SMS', 'Email', 'App']
-                      .map(
-                        (method) => DropdownMenuItem(
-                          value: method,
-                          child: Text(method),
-                        ),
-                      )
-                      .toList(),
+                  items: ['Passcode'].map((method) {
+                    return DropdownMenuItem(value: method, child: Text(method));
+                  }).toList(),
                   onChanged: (method) async {
                     if (method == null) return;
                     setState(() => _approvalMethod = method);
@@ -390,9 +484,79 @@ class _SettingsPageState extends State<SettingsPage> {
                     labelText: "Approval Method",
                   ),
                 ),
+                const SizedBox(height: 8),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _passcodeCtrl,
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        enabled: !_passcodeLocked,
+                        decoration: const InputDecoration(
+                          labelText: 'Guardian Passcode',
+                          hintText: 'Set passcode (once only)',
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: _isConfirmEnabled
+                          ? () async {
+                              await _saveGuardSettings();
+                              setState(() {
+                                _passcodeLocked = true;
+                                _isConfirmEnabled = false;
+                              });
+
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Passcode saved')),
+                              );
+                            }
+                          : null,
+                      child: const Text('Confirm'),
+                    ),
+                  ],
+                ),
+
+                if (_passcodeLocked)
+                  TextButton(
+                    onPressed: () async {
+                      final old = await _showVerifyOldPasscodeDialog(context);
+                      if (old == _passcodeCtrl.text) {
+                        final newPass = await _showNewPasscodeDialog(context);
+                        if (newPass.isNotEmpty) {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('guardianPasscode', newPass);
+                          setState(() {
+                            _passcodeCtrl.text = newPass;
+                            _passcodeLocked = true;
+                          });
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Passcode updated successfully'),
+                            ),
+                          );
+                        }
+                      } else if (old.isNotEmpty) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Incorrect passcode')),
+                        );
+                      }
+                    },
+                    child: const Text('Change Passcode?'),
+                  ),
               ],
             ],
           ),
+
           const SizedBox(height: 30),
 
           // FAQ Section

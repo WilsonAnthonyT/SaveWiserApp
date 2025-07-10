@@ -306,7 +306,7 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                     controller: _savingCtrl,
                     keyboardType: TextInputType.number,
                     decoration: _inputDecoration('Target Savings'),
-                    maxLength: 18,
+                    maxLength: 20,
                     buildCounter:
                         (
                           _, {

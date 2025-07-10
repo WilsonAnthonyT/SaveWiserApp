@@ -1054,6 +1054,7 @@ class _SetupStep3State extends State<SetupStep3> {
   static const _kGuardName = 'guardianName';
   static const _kGuardPhone = 'guardianPhone';
   static const _kApprovalMeth = 'approvalMethod';
+  static const _kGuardPasscode = 'guardianPasscode';
 
   // state
   int _hour = 8;
@@ -1064,14 +1065,16 @@ class _SetupStep3State extends State<SetupStep3> {
   int _autoLockPct = 10;
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String _approvalMethod = 'SMS';
+  final _passcodeCtrl = TextEditingController();
+  bool _obscurePasscode = true;
+  String _approvalMethod = 'Passcode';
 
   // dropdown options
   final _hours = List.generate(12, (i) => i + 1);
   final _minutes = List.generate(60, (i) => i);
   final _periods = ['AM', 'PM'];
   final _lockPcts = [5, 10, 15, 20, 25, 30];
-  final _approvalMethods = ['SMS', 'Email', 'App'];
+  final _approvalMethods = ['Passcode'];
 
   @override
   void initState() {
@@ -1090,6 +1093,7 @@ class _SetupStep3State extends State<SetupStep3> {
     await prefs.setString(_kGuardName, _nameCtrl.text);
     await prefs.setString(_kGuardPhone, _phoneCtrl.text);
     await prefs.setString(_kApprovalMeth, _approvalMethod);
+    await prefs.setString(_kGuardPasscode, _passcodeCtrl.text);
   }
 
   Future<void> _loadPreferences() async {
@@ -1104,6 +1108,7 @@ class _SetupStep3State extends State<SetupStep3> {
       _nameCtrl.text = prefs.getString(_kGuardName) ?? '';
       _phoneCtrl.text = prefs.getString(_kGuardPhone) ?? '';
       _approvalMethod = prefs.getString(_kApprovalMeth) ?? _approvalMethod;
+      _passcodeCtrl.text = prefs.getString(_kGuardPasscode) ?? '';
     });
   }
 
@@ -1115,16 +1120,16 @@ class _SetupStep3State extends State<SetupStep3> {
   }
 
   Future<void> _finishSetup() async {
-    if (_guardianEnabled) {
-      if (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter both guardian name and phone number.'),
-          ),
-        );
-        return;
-      }
-    }
+    // if (_guardianEnabled) {
+    //   if (_nameCtrl.text.trim().isEmpty ||
+    //       _phoneCtrl.text.trim().isEmpty ||
+    //       _passcodeCtrl.text.trim().isEmpty) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       const SnackBar(content: Text('Please enter all the fields.')),
+    //     );
+    //     return;
+    //   }
+    // }
 
     _persistStep3Prefs();
 
@@ -1422,6 +1427,30 @@ class _SetupStep3State extends State<SetupStep3> {
                                     setState(() => _approvalMethod = v!),
                               ),
                             ],
+                          ),
+
+                          TextField(
+                            controller: _passcodeCtrl,
+                            obscureText: _obscurePasscode,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            decoration: InputDecoration(
+                              labelText: 'Guardian Passcode',
+                              hintText: 'Set passcode (once only)',
+                              counterText: '',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePasscode
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePasscode = !_obscurePasscode;
+                                  });
+                                },
+                              ),
+                            ),
                           ),
                         ],
                       ],
