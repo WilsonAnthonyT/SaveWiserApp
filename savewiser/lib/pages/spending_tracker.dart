@@ -302,24 +302,29 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
 
   // Function to prompt for CPF approval
   Future<bool> _promptForCfpApproval(double remainingAmount) async {
-    return await showDialog(
+    final prefs = await SharedPreferences.getInstance();
+    final guardianEnabled = prefs.getBool('guardianEnabled') ?? false;
+    final storedPasscode = prefs.getString('guardianPasscode') ?? '';
+
+    final approved =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: Text('Use CPF Funds'),
+              title: const Text('Use CPF Funds'),
               content: Text(
                 'Do you approve using ${currencyFormatter.format(remainingAmount)} $_currency from your CPF balance?',
               ),
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(false); // User declined
+                    Navigator.of(context).pop(false);
                   },
                   child: const Text('Cancel'),
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(true); // User approved
+                    Navigator.of(context).pop(true);
                   },
                   child: const Text('Approve'),
                 ),
@@ -327,7 +332,55 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
             );
           },
         ) ??
-        false; // Default to false if the dialog is dismissed
+        false;
+
+    // If user declined, or no guardian control needed, return result
+    if (!approved || !guardianEnabled || storedPasscode.isEmpty)
+      return approved;
+
+    // Require passcode if guardian is active
+    return await _verifyGuardianPasscodeDialog(storedPasscode);
+  }
+
+  Future<bool> _verifyGuardianPasscodeDialog(String correctPasscode) async {
+    final TextEditingController passCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Guardian Approval Required'),
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(
+            hintText: 'Enter Guardian Passcode',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, passCtrl.text.trim() == correctPasscode);
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect or missing guardian passcode')),
+      );
+    }
+
+    return result ?? false;
   }
 
   @override

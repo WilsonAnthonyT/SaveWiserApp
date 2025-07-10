@@ -747,7 +747,7 @@ class SavingsPieChart extends StatelessWidget {
     final feedback = <String>[];
 
     if (savingsPct >= targetSavingsPercent + 5) {
-      feedback.add("🎉 You saved more than your goal. Amazing!");
+      feedback.add("You saved more than your goal.");
     } else if (savingsPct >= targetSavingsPercent) {
       feedback.add("✅ You hit your savings target!");
     } else {
