@@ -418,7 +418,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
                     _transactions.add(
                       Transaction(
                         name: name,
-                        category: selectedCategory.toLowerCase(),
+                        category: selectedCategory,
                         amount: -amount,
                         // selectedCategory.toLowerCase() == 'needs'
                         //     ? -amount
@@ -458,9 +458,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
 
     final filtered = _filter == 'All'
         ? todaysTransactions
-        : todaysTransactions
-              .where((t) => t.category.toLowerCase() == _filter.toLowerCase())
-              .toList();
+        : todaysTransactions.where((t) => t.category == _filter).toList();
 
     final box = Hive.box<HiveTransaction.Transaction>('transactions');
     final now = DateTime.now();
