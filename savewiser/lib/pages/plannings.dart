@@ -14,12 +14,14 @@ class Transaction {
   final Category category;
   final double amount;
   final DateTime timestamp;
+  bool completed; // 👈 Add this line
 
   Transaction({
     required this.name,
     required this.category,
     required this.amount,
     required this.timestamp,
+    this.completed = false, // 👈 Default is not completed
   });
 
   Map<String, dynamic> toJson() => {
@@ -27,6 +29,7 @@ class Transaction {
     'category': category,
     'amount': amount,
     'timestamp': timestamp.toIso8601String(),
+    'completed': completed,
   };
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -35,6 +38,7 @@ class Transaction {
       category: json['category'],
       amount: (json['amount'] as num).toDouble(),
       timestamp: DateTime.parse(json['timestamp']),
+      completed: json['completed'] ?? false,
     );
   }
 }
@@ -101,6 +105,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
 
   Future<void> _completeTransaction(int index) async {
     final localTx = _transactions[index];
+    if (localTx.completed) return;
     final box = Hive.box<HiveTransaction.Transaction>('transactions');
 
     final isSpending = localTx.amount < 0;
@@ -174,7 +179,9 @@ class _PlanningsPageState extends State<PlanningsPage> {
       ),
     );
 
-    setState(() => _transactions.removeAt(index));
+    setState(() {
+      _transactions[index].completed = true;
+    });
     await _saveTransactions();
 
     if (context.mounted) {
@@ -570,9 +577,11 @@ class _PlanningsPageState extends State<PlanningsPage> {
                                     : Colors.red,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.check_circle_outline),
-                              onPressed: () => _completeTransaction(i),
+                            Checkbox(
+                              value: tx.completed,
+                              onChanged: tx.completed
+                                  ? null
+                                  : (_) => _completeTransaction(i),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline),

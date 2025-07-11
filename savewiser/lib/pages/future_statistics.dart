@@ -18,13 +18,8 @@ class FutureStatisticsPage extends StatefulWidget {
 }
 
 class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
-  static const years = ['2026', '2027', '2028'];
-  Map<String, List<double>> _series = {
-    for (var y in years)
-      y: List.generate(12, (_) {
-        return 0;
-      }),
-  };
+  late Map<String, List<double>> _series;
+  late final List<String> years;
 
   String? _advice;
   bool _isLoading = false;
@@ -58,11 +53,16 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   @override
   void initState() {
     super.initState();
+
+    final currentYear = DateTime.now().year;
+    years = List.generate(3, (i) => (currentYear + i + 1).toString());
+
+    _series = {for (var y in years) y: List.generate(12, (_) => 0.0)};
+
     _goalDateText = "";
     _refreshData();
     _fetchAdvice();
     _getPreference();
-    setState(() {});
   }
 
   double _niceInterval(double maxY) {
@@ -88,53 +88,48 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   List<double> _computeSavingsStats() {
     final box = Hive.box<Transaction>('transactions');
 
-    if (box.isEmpty) {
-      // No data, return zero savings and pace
+    final savingsTxns = box.values
+        .where((txn) => txn.category == 'Savings')
+        .toList();
+
+    if (savingsTxns.isEmpty) {
       return [0.0, 0.0];
     }
 
-    double totalSaved = 0.0;
-    for (final txn in box.values) {
-      totalSaved += txn.amount;
-    }
+    final totalSaved = savingsTxns.fold(
+      0.0,
+      (sum, txn) => sum + txn.amount.abs(),
+    );
 
-    // 3) Figure out how many months span your data:
-    //    find earliest txn and today
-    final dates = box.values.map((t) => DateTime(t.year, t.month)).toList()
-      ..sort();
+    final dates =
+        savingsTxns.map((t) => DateTime(t.year, t.month, t.date ?? 1)).toList()
+          ..sort();
+
     final start = dates.first;
     final now = DateTime.now();
-    final monthsSpan =
-        (now.year - start.year) * 12 +
-        (now.month - start.month) +
-        1; // +1 so a single-month period counts as 1
 
-    // 4) Compute pace in ₱/month:
-    final pace = totalSaved / monthsSpan;
+    final daysSpan = now.difference(start).inDays + 1; // +1 to avoid div/0
+    final dailyPace = totalSaved / daysSpan;
 
-    return [totalSaved, pace];
+    return [totalSaved, dailyPace];
   }
 
   DateTime _estimateGoalDate(
     double currentSaved,
-    double monthlyPace,
+    double dailyPace,
     double goalAmount,
   ) {
-    if (monthlyPace <= 0) {
-      // no pace → can’t predict; just return “never”
+    if (dailyPace <= 0) {
       return DateTime(9999);
     }
+
     final remaining = goalAmount - currentSaved;
     if (remaining <= 0) {
-      // already there!
       return DateTime.now();
     }
-    // how many months (rounded up):
-    final monthsNeeded = (remaining / monthlyPace).ceil();
 
-    final now = DateTime.now();
-    // roll forward that many months (day=1 for simplicity)
-    return DateTime(now.year, now.month + monthsNeeded, 1);
+    final daysNeeded = (remaining / dailyPace).ceil();
+    return DateTime.now().add(Duration(days: daysNeeded));
   }
 
   double calculateAverageSavingPercentage() {
@@ -150,7 +145,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       incomeByMonth[key] =
           (incomeByMonth[key] ?? 0) + (txn.amount > 0 ? txn.amount : 0);
       // sum up net (income minus expense)
-      netByMonth[key] = (netByMonth[key] ?? 0) + txn.amount;
+      if (txn.category == 'Savings') {
+        netByMonth[key] = (netByMonth[key] ?? 0) + txn.amount.abs();
+      }
     }
 
     // 2) Compute each month’s saved% and average them
@@ -159,14 +156,15 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
     incomeByMonth.forEach((key, income) {
       if (income > 0) {
-        final net = netByMonth[key]!;
+        final net = netByMonth[key] ?? 0;
         final pct = (net / income) * 100;
+        print("pct = $pct");
         totalPct += pct;
         counted++;
       }
     });
 
-    return counted > 0 ? totalPct / counted : 0.0;
+    return counted > 0 ? totalPct / counted.toDouble() : 0.0;
   }
 
   Future<void> _refreshData() async {

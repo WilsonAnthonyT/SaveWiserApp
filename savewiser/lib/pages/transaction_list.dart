@@ -235,14 +235,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
                             fontStyle: FontStyle.italic,
                           ),
                         ),
-                        trailing: Text(
-                          "${tx["cur"]} ${isIncome ? "+ " : "- "}${currencyFormatter.format(tx["amount"].abs())}",
-                          style: TextStyle(
-                            color: isIncome ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                        trailing: SizedBox(
+                          width: 120, // adjust width as needed
+                          child: FittedBox(
+                            alignment: Alignment.centerRight,
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "${tx["cur"]} ${isIncome ? "+ " : "- "}${currencyFormatter.format(tx["amount"].abs())}",
+                              style: TextStyle(
+                                color: isIncome ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                           ),
                         ),
+
                         onLongPress: () async {
                           bool isSavingsTx =
                               tx['type'] == 'Expense' &&

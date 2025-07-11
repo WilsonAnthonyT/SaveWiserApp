@@ -1177,8 +1177,9 @@ class _SetupStep3State extends State<SetupStep3> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isSetupDone', true);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainNavigation(initialIndex: 2)),
+      (route) => false, // remove all previous routes
     );
   }
 

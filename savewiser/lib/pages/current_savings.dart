@@ -8,7 +8,8 @@ import 'transaction_list.dart';
 import 'spending_tracker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final currencyFormatter = NumberFormat.decimalPattern();
+final currencyFormatter = NumberFormat.decimalPattern()
+  ..maximumFractionDigits = 0;
 
 class MonthYear {
   final int year;
@@ -747,9 +748,9 @@ class SavingsPieChart extends StatelessWidget {
     final feedback = <String>[];
 
     if (savingsPct >= targetSavingsPercent + 5) {
-      feedback.add("You saved more than your goal.");
+      feedback.add("You savings exceeded your expenses.");
     } else if (savingsPct >= targetSavingsPercent) {
-      feedback.add("✅ You hit your savings target!");
+      feedback.add("✅ You hit your savings/expenses target!");
     } else {
       feedback.add("🚨 Savings below target. Try spending less on wants.");
     }

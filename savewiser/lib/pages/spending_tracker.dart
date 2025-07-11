@@ -8,8 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/notification_service.dart';
 
-final NumberFormat currencyFormatter =
-    NumberFormat.decimalPattern(); // 'en_US' by default
+final NumberFormat currencyFormatter = NumberFormat.decimalPattern()
+  ..maximumFractionDigits = 0; // 'en_US' by default
 
 class SpendingTrackerPage extends StatefulWidget {
   const SpendingTrackerPage({super.key});
