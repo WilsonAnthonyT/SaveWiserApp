@@ -492,7 +492,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                maxLength: 20,
+                maxLength: 19,
                 buildCounter:
                     (
                       _, {
