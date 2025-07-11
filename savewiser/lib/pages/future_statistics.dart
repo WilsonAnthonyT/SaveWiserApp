@@ -267,11 +267,13 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       'DEC',
     ];
 
-    final lineBarsData = [
-      _makeLineBar(_series['2026']!, Colors.pinkAccent),
-      _makeLineBar(_series['2027']!, Colors.purple),
-      _makeLineBar(_series['2028']!, Colors.green),
-    ];
+    final colors = [Colors.pinkAccent, Colors.purple, Colors.green];
+    final currentYear = DateTime.now().year;
+
+    final lineBarsData = List.generate(3, (i) {
+      final year = (currentYear + i + 1).toString(); // +1 starts from next year
+      return _makeLineBar(_series[year]!, colors[i]);
+    });
 
     final maxY = (_series.values.expand((e) => e).reduce(max) + 10)
         .ceilToDouble();
@@ -302,11 +304,8 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: years.map((y) {
-              final color = {
-                '2026': Colors.pinkAccent,
-                '2027': Colors.purple,
-                '2028': Colors.green,
-              }[y]!;
+              final index = int.parse(y) - DateTime.now().year - 1;
+              final color = colors[index];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
