@@ -131,6 +131,13 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
         .fold(0.0, (sum, tx) => sum + tx.usablePortion);
   }
 
+  double getUsableIncome() {
+    final txs = _box.values.toList();
+    return txs
+        .where((tx) => tx.transactionType == 'Income')
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
   double getSpendingOnDay(int year, int month, int day) {
     final transactions = _box.values.toList();
     return transactions
@@ -164,18 +171,19 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
 
   double getAdjustedTodayLimit() {
     final now = DateTime.now();
-    final totalUsableIncome = getThisMonthUsableIncome(now.year, now.month);
+    final totalUsableIncome = getUsableIncome();
     final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
 
+    final today = DateTime.now();
+
     final spentBeforeToday = _box.values
-        .where(
-          (tx) =>
-              tx.transactionType == 'Expense' &&
-              tx.year == now.year &&
-              tx.month == now.month &&
-              tx.date != null &&
-              tx.date! < now.day,
-        )
+        .where((tx) {
+          if (tx.transactionType != 'Expense') return false;
+          if (tx.date == null) return false;
+
+          final txDate = DateTime(tx.year, tx.month, tx.date!);
+          return txDate.isBefore(DateTime(today.year, today.month, today.day));
+        })
         .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
 
     final remainingUsable = totalUsableIncome - spentBeforeToday;
@@ -184,6 +192,25 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     if (remainingUsable <= 0 || remainingDays <= 0) return 0.0;
 
     return remainingUsable / remainingDays;
+  }
+
+  DateTime? getFirstIncomeDate() {
+    final incomes = _box.values
+        .where((tx) => tx.transactionType == 'Income')
+        .toList();
+    if (incomes.isEmpty) return null;
+
+    incomes.sort((a, b) {
+      final aDate = DateTime(a.year, a.month, a.date ?? 1);
+      final bDate = DateTime(b.year, b.month, b.date ?? 1);
+      return aDate.compareTo(bDate);
+    });
+
+    return DateTime(
+      incomes.first.year,
+      incomes.first.month,
+      incomes.first.date ?? 1,
+    );
   }
 
   void _addTransaction() async {
@@ -256,6 +283,22 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       usablePortion = amount - cpfPortion;
     }
 
+    final firstIncomeDate = getFirstIncomeDate();
+
+    if (_transactionType == 'Expense' &&
+        firstIncomeDate != null &&
+        selectedDateTime.isBefore(firstIncomeDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "🚫 You can't add expenses before your first income on ${DateFormat('d MMM yyyy').format(firstIncomeDate)}.",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final tx = Transaction(
       category: _selectedCategory,
       amount: amount,
@@ -276,7 +319,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       final now = DateTime.now();
       final todaySpent = getSpendingOnDay(now.year, now.month, now.day);
       final todayLimit = getAdjustedTodayLimit();
-      final usableIncome = getThisMonthUsableIncome(now.year, now.month);
+      final usableIncome = getUsableIncome();
 
       if (usableIncome > 0 && todaySpent > todayLimit) {
         if (_homeNotifications) {

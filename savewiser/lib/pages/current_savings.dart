@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-//import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart' as fl;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:pie_chart/pie_chart.dart';
 import 'package:intl/intl.dart';
@@ -196,6 +196,13 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
         .fold(0.0, (sum, tx) => sum + tx.usablePortion);
   }
 
+  double getUsableIncome() {
+    final txs = _box.values.toList();
+    return txs
+        .where((tx) => tx.transactionType == 'Income')
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
   double getThisMonthIncome(int year, int month) {
     final transactions = _box.values.toList();
     return transactions
@@ -289,6 +296,33 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
                       );
                     },
                   ),
+                  const SizedBox(height: 24),
+                  YearlySavingsLineChart(
+                    transactions: _box.values.toList(),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TransactionListPage(
+                            transactions: _box.values
+                                .map(
+                                  (tx) => {
+                                    "description": tx.description ?? '',
+                                    "amount": tx.amount,
+                                    "category": tx.category,
+                                    "date": DateTime(
+                                      tx.year,
+                                      tx.month,
+                                      tx.date ?? 1,
+                                    ),
+                                  },
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
                   const SizedBox(height: 24),
 
@@ -362,21 +396,22 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
         .fold(0.0, (sum, tx) => sum + tx.amount.abs());
 
     // Calculate today's adjusted spending limit
-    final double totalUsableIncome = getThisMonthUsableIncome(
-      now.year,
-      now.month,
-    );
+    // final double totalUsableIncome = getThisMonthUsableIncome(
+    //   now.year,
+    //   now.month,
+    // );
+    final double totalUsableIncome = getUsableIncome();
 
     // Calculate usable already spent BEFORE today
+
     final double spentBeforeToday = _box.values
-        .where(
-          (tx) =>
-              tx.transactionType == 'Expense' &&
-              tx.year == now.year &&
-              tx.month == now.month &&
-              tx.date != null &&
-              tx.date! < now.day,
-        )
+        .where((tx) {
+          if (tx.transactionType != 'Expense') return false;
+          if (tx.date == null) return false;
+
+          final txDate = DateTime(tx.year, tx.month, tx.date!);
+          return txDate.isBefore(DateTime(now.year, now.month, now.day));
+        })
         .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
 
     final double remainingUsable = totalUsableIncome - spentBeforeToday;
@@ -438,7 +473,7 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
             const Padding(
               padding: EdgeInsets.only(top: 4.0),
               child: Text(
-                "⚠️ You haven't added income for this month.\nDaily spending limit is inactive.",
+                "⚠️ You haven't added income for this month.",
                 style: TextStyle(fontSize: 14, color: Colors.red),
               ),
             )
@@ -858,6 +893,194 @@ class SavingsPieChart extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class YearlySavingsLineChart extends StatelessWidget {
+  final List<Transaction> transactions;
+  final VoidCallback onTap;
+
+  const YearlySavingsLineChart({
+    super.key,
+    required this.transactions,
+    required this.onTap,
+  });
+
+  Map<int, List<double>> _computeYearlySavingsPercentage(
+    List<Transaction> txs,
+  ) {
+    final Map<int, List<double>> data = {};
+
+    for (final tx in txs) {
+      if (tx.transactionType != 'Expense' || tx.category != 'Savings') continue;
+
+      data.putIfAbsent(tx.year, () => List.filled(12, 0.0));
+
+      final monthlyIncome = txs
+          .where(
+            (t) =>
+                t.transactionType == 'Income' &&
+                t.year == tx.year &&
+                t.month == tx.month,
+          )
+          .fold(0.0, (sum, t) => sum + t.amount.abs());
+
+      final savingsInMonth = txs
+          .where(
+            (t) =>
+                t.transactionType == 'Expense' &&
+                t.category == 'Savings' &&
+                t.year == tx.year &&
+                t.month == tx.month,
+          )
+          .fold(0.0, (sum, t) => sum + t.amount.abs());
+
+      if (monthlyIncome > 0) {
+        data[tx.year]![tx.month - 1] = (savingsInMonth / monthlyIncome * 100)
+            .clamp(0, 100);
+      }
+    }
+
+    return data;
+  }
+
+  List<fl.LineChartBarData> _generateLines(Map<int, List<double>> data) {
+    final colors = [
+      Colors.purple,
+      Colors.brown,
+      Colors.green,
+      Colors.blue,
+      Colors.amber,
+    ];
+
+    final sortedYears = data.keys.toList()..sort();
+
+    return List.generate(sortedYears.length, (index) {
+      final year = sortedYears[index];
+      final values = data[year]!;
+
+      return fl.LineChartBarData(
+        isCurved: true,
+        color: colors[index % colors.length],
+        barWidth: 3,
+        dotData: fl.FlDotData(show: false),
+        belowBarData: fl.BarAreaData(show: false),
+        spots: List.generate(12, (i) => fl.FlSpot(i.toDouble(), values[i])),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final savingsData = _computeYearlySavingsPercentage(transactions);
+    if (savingsData.isEmpty) return const SizedBox();
+
+    final chartLines = _generateLines(savingsData);
+    final years = savingsData.keys.toList()..sort();
+
+    // Determine the highest percentage value in all years
+    double maxYValue = 0;
+    for (final yearValues in savingsData.values) {
+      for (final val in yearValues) {
+        if (val > maxYValue) maxYValue = val;
+      }
+    }
+
+    final bool isLowScale = maxYValue <= 50;
+    final double interval = isLowScale ? 5 : 10;
+
+    // Round up maxY to next multiple of interval
+    final double roundedMaxY =
+        ((maxYValue / interval).ceil() + 2) * interval.toDouble();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          const Text(
+            "Savings Percentage",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+          const SizedBox(height: 16),
+          AspectRatio(
+            aspectRatio: 1.7,
+            child: fl.LineChart(
+              fl.LineChartData(
+                minY: 0,
+                maxY: roundedMaxY,
+                gridData: fl.FlGridData(show: true),
+                titlesData: fl.FlTitlesData(
+                  bottomTitles: fl.AxisTitles(
+                    sideTitles: fl.SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (value, _) {
+                        const months = [
+                          "JAN",
+                          "FEB",
+                          "MAR",
+                          "APR",
+                          "MAY",
+                          "JUN",
+                          "JUL",
+                          "AUG",
+                          "SEP",
+                          "OCT",
+                          "NOV",
+                          "DEC",
+                        ];
+                        if (value < 0 || value > 11) return const SizedBox();
+                        return Text(
+                          months[value.toInt()],
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: fl.AxisTitles(
+                    sideTitles: fl.SideTitles(
+                      showTitles: true,
+                      interval: interval,
+                      getTitlesWidget: (value, _) => Text('${value.toInt()}'),
+                    ),
+                  ),
+                  topTitles: fl.AxisTitles(
+                    sideTitles: fl.SideTitles(showTitles: false),
+                  ),
+                  rightTitles: fl.AxisTitles(
+                    sideTitles: fl.SideTitles(showTitles: false),
+                  ),
+                ),
+                lineBarsData: chartLines,
+                borderData: fl.FlBorderData(show: true),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            children: List.generate(years.length, (i) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.circle,
+                    size: 10,
+                    color: chartLines[i].color ?? Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${years[i]}'),
+                ],
+              );
+            }),
           ),
         ],
       ),

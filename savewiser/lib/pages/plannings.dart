@@ -294,6 +294,12 @@ class _PlanningsPageState extends State<PlanningsPage> {
         .fold(0.0, (sum, tx) => sum + tx.usablePortion);
   }
 
+  double getUsableIncome(Box<HiveTransaction.Transaction> box) {
+    return box.values
+        .where((tx) => tx.transactionType == 'Income')
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
   double getSpendingOnDay(
     Box<HiveTransaction.Transaction> box,
     int year,
@@ -313,22 +319,17 @@ class _PlanningsPageState extends State<PlanningsPage> {
 
   double getAdjustedTodayLimit(Box<HiveTransaction.Transaction> box) {
     final now = DateTime.now();
-    final totalUsableIncome = getThisMonthUsableIncome(
-      box,
-      now.year,
-      now.month,
-    );
+    final totalUsableIncome = getUsableIncome(box);
     final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
 
     final spentBeforeToday = box.values
-        .where(
-          (tx) =>
-              tx.transactionType == 'Expense' &&
-              tx.year == now.year &&
-              tx.month == now.month &&
-              tx.date != null &&
-              tx.date! < now.day,
-        )
+        .where((tx) {
+          if (tx.transactionType != 'Expense') return false;
+          if (tx.date == null) return false;
+
+          final txDate = DateTime(tx.year, tx.month, tx.date!);
+          return txDate.isBefore(DateTime(now.year, now.month, now.day));
+        })
         .fold(0.0, (sum, tx) => sum + tx.usablePortion.abs());
 
     final remainingUsable = totalUsableIncome - spentBeforeToday;
