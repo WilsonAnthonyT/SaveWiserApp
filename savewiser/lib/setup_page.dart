@@ -8,6 +8,7 @@ import 'services/notification_schedule.dart';
 
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat.decimalPattern();
@@ -651,34 +652,47 @@ class _SetupStep1State extends State<SetupStep1> {
                                 const SizedBox(height: 12),
 
                                 // Calendar
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
+                                TableCalendar(
+                                  firstDay: DateTime.now(),
+                                  lastDay: DateTime.now().add(
+                                    const Duration(days: 365 * 50),
                                   ),
-                                  child: Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: Theme.of(context).colorScheme
-                                          .copyWith(primary: Colors.green),
+                                  focusedDay: _focusedDate,
+                                  selectedDayPredicate: (day) =>
+                                      isSameDay(_selectedDate, day),
+                                  onDaySelected: (selected, focused) {
+                                    setState(() {
+                                      _selectedDate = selected;
+                                      _focusedDate = focused;
+                                      _selMonth = _months[selected.month - 1];
+                                      _selYear = selected.year.toString();
+                                    });
+                                  },
+                                  calendarStyle: CalendarStyle(
+                                    isTodayHighlighted: true,
+                                    selectedDecoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.green,
+                                        width: 2,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      color: Colors.transparent,
                                     ),
-                                    child: CalendarDatePicker(
-                                      key: ValueKey(
-                                        '${_focusedDate.year}-${_focusedDate.month}',
-                                      ),
-                                      initialDate: _focusedDate,
-                                      firstDate: DateTime.now(),
-                                      lastDate: DateTime.now().add(
-                                        const Duration(days: 365 * 50),
-                                      ),
-                                      currentDate: _selectedDate,
-                                      onDateChanged: (dt) {
-                                        setState(() {
-                                          _selectedDate = dt;
-                                          _focusedDate = dt;
-                                          _selMonth = _months[dt.month - 1];
-                                          _selYear = dt.year.toString();
-                                        });
-                                      },
+
+                                    todayDecoration: BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    selectedTextStyle: const TextStyle(
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  headerStyle: const HeaderStyle(
+                                    formatButtonVisible: false,
+                                    titleCentered: true,
+                                    titleTextStyle: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
