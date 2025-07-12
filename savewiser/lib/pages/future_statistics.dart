@@ -213,7 +213,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      // backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Column(
           children: [
@@ -230,7 +230,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
           ],
         ),
         centerTitle: true,
-        backgroundColor: Colors.grey[100],
+        // backgroundColor: Colors.grey[100],
         elevation: 0,
       ),
       body: Padding(
@@ -283,6 +283,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+        ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -460,6 +463,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+        ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(

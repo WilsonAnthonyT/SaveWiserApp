@@ -211,7 +211,6 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       body: ValueListenableBuilder(
         valueListenable: _box.listenable(),
         builder: (context, Box<Transaction> box, _) {
