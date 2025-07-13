@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'update_profile.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -104,6 +107,8 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
+                const ProfileImagePicker(), // 👈 Add this here
+                const SizedBox(height: 20),
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
@@ -112,28 +117,28 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      Row(
-                        children: const [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: Colors.white,
-                            child: Icon(
-                              Icons.person,
-                              size: 30,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Your Profile',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
+                      // Row(
+                      //   children: const [
+                      //     CircleAvatar(
+                      //       radius: 24,
+                      //       backgroundColor: Colors.white,
+                      //       child: Icon(
+                      //         Icons.person,
+                      //         size: 30,
+                      //         color: Colors.grey,
+                      //       ),
+                      //     ),
+                      //     SizedBox(width: 12),
+                      //     Text(
+                      //       'Your Profile',
+                      //       style: TextStyle(
+                      //         fontSize: 20,
+                      //         fontWeight: FontWeight.bold,
+                      //         color: Colors.black87,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                       const SizedBox(height: 30),
                       _buildField("Full Name", _fullName),
                       _buildField("Gender", _gender),
@@ -223,6 +228,126 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class ProfileImagePicker extends StatefulWidget {
+  const ProfileImagePicker({super.key});
+
+  @override
+  State<ProfileImagePicker> createState() => _ProfileImagePickerState();
+}
+
+class _ProfileImagePickerState extends State<ProfileImagePicker> {
+  File? _imageFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedImage();
+  }
+
+  Future<void> _loadSavedImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profile_image_path');
+    if (path != null && File(path).existsSync()) {
+      setState(() {
+        _imageFile = File(path);
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      final appDir = await getApplicationDocumentsDirectory();
+      final savedImage = await File(
+        picked.path,
+      ).copy('${appDir.path}/profile_picture.png');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'profile_image_path',
+        savedImage.path,
+      ); // ✅ save path
+
+      setState(() {
+        _imageFile = savedImage;
+      });
+    }
+  }
+
+  Future<void> _deleteImage() async {
+    if (_imageFile != null && await _imageFile!.exists()) {
+      try {
+        await _imageFile!.delete();
+      } catch (e) {
+        debugPrint('Error deleting profile image: $e');
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('profile_image_path');
+
+    setState(() {
+      _imageFile = null;
+    });
+  }
+
+  @override
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey[300],
+              backgroundImage: _imageFile != null
+                  ? FileImage(_imageFile!)
+                  : null,
+              child: _imageFile == null
+                  ? const Icon(Icons.person, size: 60, color: Colors.white)
+                  : null,
+            ),
+            Positioned(
+              bottom: 0,
+              right: 4,
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit, color: Colors.white, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_imageFile != null)
+          TextButton.icon(
+            onPressed: _deleteImage,
+            icon: const Icon(Icons.delete, color: Colors.red),
+            label: const Text(
+              "Remove Photo",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+            ),
+          )
+        else
+          const Text(
+            "No profile photo set",
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+      ],
     );
   }
 }

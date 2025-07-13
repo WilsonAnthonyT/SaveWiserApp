@@ -14,14 +14,14 @@ class Transaction {
   final Category category;
   final double amount;
   final DateTime timestamp;
-  bool completed; // 👈 Add this line
+  bool completed;
 
   Transaction({
     required this.name,
     required this.category,
     required this.amount,
     required this.timestamp,
-    this.completed = false, // 👈 Default is not completed
+    this.completed = false,
   });
 
   Map<String, dynamic> toJson() => {

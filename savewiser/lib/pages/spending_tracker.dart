@@ -5,14 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/thousand_separator_input.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/notification_service.dart';
+import '../main_nav.dart';
 
 final NumberFormat currencyFormatter = NumberFormat.decimalPattern()
   ..maximumFractionDigits = 0; // 'en_US' by default
 
 class SpendingTrackerPage extends StatefulWidget {
-  const SpendingTrackerPage({super.key});
+  final bool fromSetup;
+  const SpendingTrackerPage({super.key, this.fromSetup = false});
 
   @override
   State<SpendingTrackerPage> createState() => _SpendingTrackerPageState();
@@ -75,9 +76,31 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     return transactions.fold(0.0, (sum, tx) => sum + tx.amount);
   }
 
+  double getTotalBalanceUntil(DateTime selectedDate) {
+    final txs = _box.values.where((tx) => tx.date != null).toList();
+
+    return txs
+        .where((tx) {
+          final txDate = DateTime(tx.year, tx.month, tx.date!);
+          return txDate.isBefore(selectedDate.add(const Duration(days: 1)));
+        })
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
   double getUsableBalance() {
     final transactions = _box.values.toList();
     return transactions.fold(0.0, (sum, tx) => sum + tx.usablePortion);
+  }
+
+  double getUsableBalanceUntil(DateTime selectedDate) {
+    final txs = _box.values.where((tx) => tx.date != null).toList();
+
+    return txs
+        .where((tx) {
+          final txDate = DateTime(tx.year, tx.month, tx.date!);
+          return txDate.isBefore(selectedDate.add(const Duration(days: 1)));
+        })
+        .fold(0.0, (sum, tx) => sum + tx.usablePortion);
   }
 
   double getCpfBalance() {
@@ -244,46 +267,9 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     final double usableBalance = getUsableBalance();
     final double cpfBalance = getCpfBalance();
 
-    if (_transactionType == 'Expense') {
-      if (amount > balance) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              "Insufficient total balance to make this expense.",
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      if (usableBalance < amount) {
-        double remainingAmount = amount - usableBalance;
-        bool cpfApproved = false;
-        cpfApproved = await _promptForCpfApproval(remainingAmount);
-        if (!cpfApproved) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text("You need approval to use CPF funds."),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-        usablePortion = -usableBalance.abs();
-        cpfPortion = -remainingAmount.abs();
-      } else {
-        usablePortion = -amount.abs();
-        cpfPortion = 0.0;
-      }
-      amount = -amount.abs();
-    } else {
-      // Income transaction
-      amount = amount.abs();
-      cpfPortion = amount * _autoLockPct / 100.0;
-      usablePortion = amount - cpfPortion;
-    }
-
     final firstIncomeDate = getFirstIncomeDate();
+    final usableBalanceAtTime = getUsableBalanceUntil(selectedDateTime);
+    final totalBalanceAtTime = getTotalBalanceUntil(selectedDateTime);
 
     if (_transactionType == 'Expense' &&
         firstIncomeDate != null &&
@@ -297,6 +283,45 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
         ),
       );
       return;
+    }
+
+    if (_transactionType == 'Expense') {
+      if (amount > totalBalanceAtTime) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Insufficient total balance (at this time) to make this expense.",
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (usableBalanceAtTime < amount) {
+        double remainingAmount = amount - usableBalanceAtTime;
+        bool cpfApproved = false;
+        cpfApproved = await _promptForCpfApproval(remainingAmount);
+        if (!cpfApproved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("You need approval to use CPF funds."),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        usablePortion = -usableBalanceAtTime.abs();
+        cpfPortion = -remainingAmount.abs();
+      } else {
+        usablePortion = -amount.abs();
+        cpfPortion = 0.0;
+      }
+      amount = -amount.abs();
+    } else {
+      // Income transaction
+      amount = amount.abs();
+      cpfPortion = amount * _autoLockPct / 100.0;
+      usablePortion = amount - cpfPortion;
     }
 
     final tx = Transaction(
@@ -327,7 +352,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
             id: 1,
             title: "Overspending Alert!",
             body:
-                "You've spent ${currencyFormatter.format(todaySpent)} today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
+                "You've spent ${currencyFormatter.format(todaySpent)} from your usable balance today, which exceeds your limit of ${currencyFormatter.format(todayLimit)}.",
           );
         }
       }
@@ -339,7 +364,19 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
 
     // Go back to the previous screen
     if (context.mounted) {
-      Navigator.pop(context);
+      if (widget.fromSetup) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isSetupDone', true);
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const MainNavigation(initialIndex: 2),
+          ),
+          (route) => false,
+        );
+      } else {
+        Navigator.pop(context); // Normal case
+      }
     }
   }
 
@@ -633,6 +670,30 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                 onPressed: _addTransaction,
                 child: const Text("Add Transaction"),
               ),
+
+              if (widget.fromSetup)
+                TextButton(
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool(
+                      'isSetupDone',
+                      true,
+                    ); // mark setup complete
+
+                    if (!mounted) return;
+
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const MainNavigation(initialIndex: 2),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  child: const Text(
+                    "Add Later",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
             ],
           ),
         ),

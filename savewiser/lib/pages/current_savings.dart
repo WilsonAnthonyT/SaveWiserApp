@@ -45,8 +45,6 @@ class _CurrentSavingsPageState extends State<CurrentSavingsPage> {
   late MonthYear _selectedMonthYear;
   String _targetAmount = '';
   DateTime? _goalDate;
-  bool _hasReachedGoal = false;
-  String _goalFeedbackMessage = '';
   //bool _homeNotifications = true;
 
   @override
@@ -924,8 +922,8 @@ class YearlySavingsLineChart extends StatelessWidget {
           .where(
             (t) =>
                 t.transactionType == 'Income' &&
-                t.year == tx.year &&
-                t.month == tx.month,
+                (t.year < tx.year ||
+                    (t.year == tx.year && t.month <= tx.month)),
           )
           .fold(0.0, (sum, t) => sum + t.amount.abs());
 
@@ -1049,9 +1047,27 @@ class YearlySavingsLineChart extends StatelessWidget {
                     sideTitles: fl.SideTitles(
                       showTitles: true,
                       interval: interval,
-                      getTitlesWidget: (value, _) => Text('${value.toInt()}'),
+                      reservedSize: 32, // prevents clipping
+                      getTitlesWidget: (value, meta) {
+                        // Hide fractional labels (if any)
+                        if (value % interval != 0) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Text(
+                            '${value.toInt()}%',
+                            style: const TextStyle(
+                              fontSize: 10, // make it small to avoid crowding
+                              color: Colors.black87,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
+
                   topTitles: fl.AxisTitles(
                     sideTitles: fl.SideTitles(showTitles: false),
                   ),

@@ -9,9 +9,8 @@ import '../utils/recalculate_balance.dart';
 final currencyFormatter = NumberFormat.decimalPattern();
 
 class TransactionListPage extends StatefulWidget {
-  final List<Map<String, dynamic>> transactions; // Define transactions
+  final List<Map<String, dynamic>> transactions;
 
-  // Accept transactions as a named parameter
   const TransactionListPage({super.key, required this.transactions});
 
   @override
@@ -255,6 +254,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           bool isSavingsTx =
                               tx['type'] == 'Expense' &&
                               tx['category'] == 'Savings';
+                          bool isIncomeTx = tx['type'] == 'Income';
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -262,6 +262,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                               content: Text(
                                 isSavingsTx
                                     ? "⚠️ This is a savings transaction. Deleting it may affect your savings progress. Continue?"
+                                    : isIncomeTx
+                                    ? "⚠️ This is an income transaction. Deleting it may affect related expenses or savings calculations. Make sure to review any linked transactions before proceeding. Continue?"
                                     : "This action cannot be undone.",
                               ),
                               actions: [

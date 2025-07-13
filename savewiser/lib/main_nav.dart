@@ -5,6 +5,9 @@ import 'package:savewiser/pages/current_savings.dart';
 import 'package:savewiser/pages/plannings.dart';
 import 'package:savewiser/pages/profile_page.dart';
 import 'package:savewiser/pages/settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 String _getAppBarTitle(int index) {
   switch (index) {
@@ -34,11 +37,13 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   late int _selectedIndex;
+  File? _profileImage;
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex; // ✅ Set starting tab
+    _selectedIndex = widget.initialIndex;
+    _loadProfileImage();
   }
 
   final List<Widget> _pages = [
@@ -48,6 +53,16 @@ class _MainNavigationState extends State<MainNavigation> {
     PlanningsPage(),
     SettingsPage(),
   ];
+
+  Future<void> _loadProfileImage() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/profile_picture.png');
+    if (await file.exists()) {
+      setState(() {
+        _profileImage = file;
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -63,19 +78,25 @@ class _MainNavigationState extends State<MainNavigation> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.account_circle),
+            icon: _profileImage != null
+                ? CircleAvatar(
+                    backgroundImage: FileImage(_profileImage!),
+                    radius: 14,
+                  )
+                : const Icon(Icons.account_circle),
             onPressed: () async {
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
 
-              if (result == true && mounted && _selectedIndex == 1) {
-                // 👈 Only refresh if ProfilePage requested it and CurrentSavings is active
-                setState(() {
-                  // Force rebuild of CurrentSavingsPage
-                  _pages[1] = CurrentSavingsPage(key: UniqueKey());
-                });
+              if (result == true && mounted) {
+                _loadProfileImage(); // 👈 Refresh image after coming back
+                if (_selectedIndex == 1) {
+                  setState(() {
+                    _pages[1] = CurrentSavingsPage(key: UniqueKey());
+                  });
+                }
               }
             },
           ),
