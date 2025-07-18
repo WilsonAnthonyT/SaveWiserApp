@@ -14,7 +14,9 @@
 - Follow the installation guide for your OS (Windows/macOS/Linux)
 - Install all the important extensions (flutter, flutter widgets and dart) in the VSCode
 - After installing, open a terminal and run:
-flutter doctor
+  ```bash
+  flutter doctor
+  ```
 
 ### 2. Install Android Studio (to retreive the android sdk)
 - Go to : https://developer.android.com/studio
