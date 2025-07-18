@@ -43,9 +43,12 @@ For a more comprehensive guide, follow the steps by watching this video below:
 
 ### To Build the App Locally
 - Clone the repository (make sure you have git downloaded and a github account)
-- Run the following in the terminal
+- Make sure to always change directory to savewiser (the file where pubspec.yaml is located)
   ```bash
   cd savewiser
+  ```
+- Run the following in the terminal
+  ```bash
   flutter pub get
   ```
   If you want to Build the App locally:
@@ -54,7 +57,11 @@ For a more comprehensive guide, follow the steps by watching this video below:
   ```
 wait until the whole processes are finished, then you can download the apk_release file
 (inside the SaveWiserApp\savewiser\build\app\outputs\flutter-apk)
-- Or if you want to run the app immediately, just type in "flutter run", then select your devices.
+- Or if you want to run the app immediately"
+  ```bash
+  flutter run
+  ```
+  Then select the devices where'd you want the app to run on
 
 **How to clone a repository**
 >> https://youtu.be/ILJ4dfOL7zs?si=iiQkzEsB7scCZ8hz
