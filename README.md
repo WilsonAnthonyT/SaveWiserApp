@@ -77,7 +77,7 @@ To publish the app, you’ll need:
 flutter build appbundle --release
 ```
 
-watch the following tutorial
+watch the following tutorial for clarity
 >> https://youtu.be/ZxjgV1YaOcQ?si=to1RUt3Uut8xZd_3
 
 
