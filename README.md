@@ -17,6 +17,7 @@
   ```bash
   flutter doctor
   ```
+  if the android thing is missing, go to the step 2
 
 ### 2. Install Android Studio (to retreive the android sdk)
 - Go to : https://developer.android.com/studio
