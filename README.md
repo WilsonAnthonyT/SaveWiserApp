@@ -18,7 +18,8 @@ flutter doctor
 
 ### 2. Install Android Studio (to retreive the android sdk)
 - Go to : https://developer.android.com/studio
-- During the setup process, make sure to donwload the following components
+- During the setup process, make sure to donwload the following components:
+  
 ✅ Android SDK
 
 ✅ Android SDK Platform-Tools
@@ -39,9 +40,16 @@ For a more comprehensive guide, follow the steps by watching this video below:
 
 ### To Build the App Locally
 - Clone the repository (make sure you have git downloaded and a github account)
-- type "cd savewiser" in the terminal
-- run "flutter pub get" in the terminal
-- run "flutter build apk", wait until the whole processes are finished, then you can download the apk_release file
+- Run the following in the terminal
+  ```bash
+  cd savewiser
+  flutter pub get
+  ```
+  If you want to Build the App locally:
+  ```bash
+  flutter build apk
+  ```
+wait until the whole processes are finished, then you can download the apk_release file
 (inside the SaveWiserApp\savewiser\build\app\outputs\flutter-apk)
 - Or if you want to run the app immediately, just type in "flutter run", then select your devices.
 
