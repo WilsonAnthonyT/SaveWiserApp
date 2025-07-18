@@ -52,7 +52,7 @@ void main() async {
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    print('❌ Flutter Error: ${details.exception}');
+    // print('❌ Flutter Error: ${details.exception}');
   };
 
   runApp(SaveWiserApp());
@@ -69,7 +69,7 @@ Future<void> _initializeTimeZone() async {
     final String timeZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(timeZone));
   } catch (e) {
-    print("Timezone error: $e. Falling back to UTC.");
+    // print("Timezone error: $e. Falling back to UTC.");
     tz.setLocalLocation(tz.getLocation('UTC'));
   }
 }

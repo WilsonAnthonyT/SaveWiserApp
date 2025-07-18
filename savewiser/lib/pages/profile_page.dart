@@ -94,7 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.pop(context, true); // 👈 This line
+            Navigator.pop(context, true);
           },
         ),
       ),
@@ -107,7 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                const ProfileImagePicker(), // 👈 Add this here
+                const ProfileImagePicker(),
                 const SizedBox(height: 20),
                 Container(
                   decoration: BoxDecoration(

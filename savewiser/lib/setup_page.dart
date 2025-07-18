@@ -1,7 +1,7 @@
 // File: lib/screens/setup_page.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main_nav.dart';
+// import 'main_nav.dart';
 import 'pages/spending_tracker.dart';
 import 'services/notification_schedule.dart';
 // File: lib/screens/setup_page.dart
@@ -890,11 +890,11 @@ class _SetupStep2State extends State<SetupStep2> {
     );
   }
 
-  Future<bool> _onWillPop() async {
-    // save before popping
-    await _persistSelections();
-    return true; // allow the pop
-  }
+  // Future<bool> _onWillPop() async {
+  //   // save before popping
+  //   await _persistSelections();
+  //   return true; // allow the pop
+  // }
 
   Future<void> _loadSavedSelections() async {
     final prefs = await SharedPreferences.getInstance();

@@ -4,7 +4,7 @@ import 'package:hive/hive.dart';
 import '../models/transaction.dart';
 import 'profile_page.dart';
 import 'spending_tracker.dart';
-import '../utils/recalculate_balance.dart';
+//import '../utils/recalculate_balance.dart';
 
 final currencyFormatter = NumberFormat.decimalPattern();
 

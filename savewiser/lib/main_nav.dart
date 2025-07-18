@@ -5,7 +5,7 @@ import 'package:savewiser/pages/current_savings.dart';
 import 'package:savewiser/pages/plannings.dart';
 import 'package:savewiser/pages/profile_page.dart';
 import 'package:savewiser/pages/settings.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 

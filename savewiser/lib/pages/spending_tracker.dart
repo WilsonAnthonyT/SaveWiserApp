@@ -263,9 +263,9 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
         0.0;
 
     final String description = _descriptionController.text;
-    final double balance = getCurrentBalance();
-    final double usableBalance = getUsableBalance();
-    final double cpfBalance = getCpfBalance();
+    // final double balance = getCurrentBalance();
+    // final double usableBalance = getUsableBalance();
+    // final double cpfBalance = getCpfBalance();
 
     final firstIncomeDate = getFirstIncomeDate();
     final usableBalanceAtTime = getUsableBalanceUntil(selectedDateTime);
@@ -472,8 +472,8 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     final now = DateTime.now(); // ✅ this was missing
 
     final double balance = getCurrentBalance();
-    final double cpfBalance = getCpfBalance();
-    final double usableBalance = getUsableBalance();
+    // final double cpfBalance = getCpfBalance();
+    // final double usableBalance = getUsableBalance();
 
     double todaySpent = getSpendingOnDay(now.year, now.month, now.day);
     double todayLimit = getAdjustedTodayLimit();

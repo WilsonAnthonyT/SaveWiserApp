@@ -116,7 +116,7 @@ class _PlanningsPageState extends State<PlanningsPage> {
     if (isSpending) {
       final balance = getCurrentBalance(box);
       final usableBalance = getUsableBalance(box);
-      final cpfBalance = getCpfBalance(box);
+      // final cpfBalance = getCpfBalance(box);
       final spendingAmount = localTx.amount.abs();
 
       if (spendingAmount > balance) {
@@ -459,10 +459,10 @@ class _PlanningsPageState extends State<PlanningsPage> {
     final totalSpent = todaysTransactions
         .where((t) => t.amount < 0)
         .fold(0.0, (sum, t) => sum + t.amount);
-    final totalIncome = todaysTransactions
-        .where((t) => t.amount > 0)
-        .fold(0.0, (sum, t) => sum + t.amount);
-    final net = totalIncome + totalSpent;
+    // final totalIncome = todaysTransactions
+    //     .where((t) => t.amount > 0)
+    //     .fold(0.0, (sum, t) => sum + t.amount);
+    // final net = totalIncome + totalSpent;
 
     final filtered = _filter == 'All'
         ? todaysTransactions

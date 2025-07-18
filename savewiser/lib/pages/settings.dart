@@ -587,7 +587,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: "Helpline / Support",
             children: [
               _supportText("Phone", "Not Available"),
-              _supportText("Email", "support@savewiser.com"),
+              _supportText("Email", "savewiserhelps@gmail.com"),
               ListTile(
                 leading: const Icon(Icons.chat_bubble_outline),
                 title: const Text("Live Chat: Currently Not Available"),

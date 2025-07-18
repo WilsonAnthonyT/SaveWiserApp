@@ -16,7 +16,7 @@
 
     
     <application
-        android:label="savewiser"
+        android:label="SaveWiser"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
