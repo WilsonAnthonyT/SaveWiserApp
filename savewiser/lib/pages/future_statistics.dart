@@ -6,7 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 
-import 'api_service.dart'; // Contains your ApiService.fetchAdvice()
+import 'api_service.dart';
 import '../models/transaction.dart';
 
 class FutureStatisticsPage extends StatefulWidget {
@@ -134,23 +134,18 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
 
   double calculateAverageSavingPercentage() {
     final box = Hive.box<Transaction>('transactions');
-
-    // 1) Buckets keyed by "YYYY-MM"
     final incomeByMonth = <String, double>{};
     final netByMonth = <String, double>{};
 
     for (final txn in box.values) {
       final key = '${txn.year}-${txn.month.toString().padLeft(2, '0')}';
-      // sum up incomes
       incomeByMonth[key] =
           (incomeByMonth[key] ?? 0) + (txn.amount > 0 ? txn.amount : 0);
-      // sum up net (income minus expense)
       if (txn.category == 'Savings') {
         netByMonth[key] = (netByMonth[key] ?? 0) + txn.amount.abs();
       }
     }
 
-    // 2) Compute each month’s saved% and average them
     double totalPct = 0;
     int counted = 0;
 
@@ -158,7 +153,7 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
       if (income > 0) {
         final net = netByMonth[key] ?? 0;
         final pct = (net / income) * 100;
-        print("pct = $pct");
+        //print("pct = $pct");
         totalPct += pct;
         counted++;
       }
@@ -449,9 +444,9 @@ class _FutureStatisticsPageState extends State<FutureStatisticsPage> {
         getDotPainter:
             (FlSpot spot, double _percent, LineChartBarData bar, int index) {
               return FlDotCirclePainter(
-                radius: 4, // size of the dot
-                color: color, // match the line’s color
-                strokeWidth: 0, // or give it a border
+                radius: 4,
+                color: color,
+                strokeWidth: 0,
               );
             },
       ),

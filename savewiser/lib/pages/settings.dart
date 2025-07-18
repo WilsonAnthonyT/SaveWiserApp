@@ -592,9 +592,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 leading: const Icon(Icons.chat_bubble_outline),
                 title: const Text("Live Chat: Currently Not Available"),
                 subtitle: const Text("Service Not Available"),
-                onTap: () {
-                  // trigger live chat action or navigation
-                },
+                onTap: () {},
               ),
             ],
           ),

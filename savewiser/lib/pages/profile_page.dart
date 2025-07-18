@@ -269,10 +269,7 @@ class _ProfileImagePickerState extends State<ProfileImagePicker> {
       ).copy('${appDir.path}/profile_picture.png');
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'profile_image_path',
-        savedImage.path,
-      ); // ✅ save path
+      await prefs.setString('profile_image_path', savedImage.path);
 
       setState(() {
         _imageFile = savedImage;

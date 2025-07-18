@@ -9,7 +9,7 @@ import '../services/notification_service.dart';
 import '../main_nav.dart';
 
 final NumberFormat currencyFormatter = NumberFormat.decimalPattern()
-  ..maximumFractionDigits = 0; // 'en_US' by default
+  ..maximumFractionDigits = 0;
 
 class SpendingTrackerPage extends StatefulWidget {
   final bool fromSetup;
@@ -22,7 +22,7 @@ class SpendingTrackerPage extends StatefulWidget {
 class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
   late Box<Transaction> _box;
   bool _isBoxReady = false;
-  int _autoLockPct = 10; // default to 10%
+  int _autoLockPct = 10;
   bool _guardEnable = false;
   bool _homeNotifications = true;
 
@@ -32,7 +32,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
     _openBox();
     _loadPrefs();
     _amountController.addListener(() {
-      setState(() {}); // Triggers rebuild on every input change
+      setState(() {});
     });
   }
 
@@ -469,7 +469,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final now = DateTime.now(); // ✅ this was missing
+    final now = DateTime.now();
 
     final double balance = getCurrentBalance();
     // final double cpfBalance = getCpfBalance();
@@ -675,10 +675,7 @@ class _SpendingTrackerPageState extends State<SpendingTrackerPage> {
                 TextButton(
                   onPressed: () async {
                     final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool(
-                      'isSetupDone',
-                      true,
-                    ); // mark setup complete
+                    await prefs.setBool('isSetupDone', true);
 
                     if (!mounted) return;
 
