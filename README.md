@@ -43,7 +43,7 @@ For a more comprehensive guide, follow the steps by watching this video below:
 
 ### To Build the App Locally
 - Clone the repository (make sure you have git downloaded and a github account)
-- Make sure to always change directory to savewiser (the file where pubspec.yaml is located)
+- Make sure to always change directory to savewiser (the folder where pubspec.yaml is located)
   ```bash
   cd savewiser
   ```
