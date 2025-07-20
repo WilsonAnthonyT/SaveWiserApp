@@ -42,7 +42,8 @@ For a more comprehensive guide, follow the steps by watching this video below:
 (note: the new android studio layout might be different compared to the video, just ask chatgpt for that :))
 
 ### To Build the App Locally
-- Clone the repository (make sure you have git downloaded and a github account)
+- Clone the repository to your IDE
+>> https://github.com/WilsonAnthonyT/SaveWiserApp.git
 - Make sure to always change directory to savewiser (the folder where pubspec.yaml is located)
   ```bash
   cd savewiser
