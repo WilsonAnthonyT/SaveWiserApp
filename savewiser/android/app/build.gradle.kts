@@ -7,7 +7,7 @@ plugins {
 
 android {
     ndkVersion = "29.0.13599879"
-    namespace = "com.example.savewiser"
+    namespace = "com.wilson.savewiser"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.savewiser"
+        applicationId = "com.wilson.savewiser"
         multiDexEnabled = true
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.

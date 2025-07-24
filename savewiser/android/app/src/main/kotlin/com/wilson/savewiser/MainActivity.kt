@@ -1,4 +1,4 @@
-package com.example.savewiser
+package com.wilson.savewiser
 
 import io.flutter.embedding.android.FlutterActivity
 
