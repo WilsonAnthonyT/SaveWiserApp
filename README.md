@@ -42,7 +42,8 @@ For a more comprehensive guide, follow the steps by watching this video below:
 (note: the new android studio layout might be different compared to the video, just ask chatgpt for that :))
 
 ### To Build the App Locally
-- Clone the repository (make sure you have git downloaded and a github account)
+- Clone the repository to your IDE
+>> https://github.com/WilsonAnthonyT/SaveWiserApp.git
 - Make sure to always change directory to savewiser (the folder where pubspec.yaml is located)
   ```bash
   cd savewiser
@@ -67,10 +68,12 @@ wait until the whole processes are finished, then you can download the apk_relea
 >> https://youtu.be/ILJ4dfOL7zs?si=iiQkzEsB7scCZ8hz
 
 ### 3. Publish the App on Google Play
+>> https://docs.flutter.dev/deployment/android
 
 To publish the app, you’ll need:
 
 - A [Google Play Developer Account](https://play.google.com/console) ($25 one-time)
+- Java jdk in order to obtain the keystore
 - The `.aab` file (Android App Bundle), which you can generate using:
 
 ```bash
@@ -79,6 +82,12 @@ flutter build appbundle --release
 
 watch the following tutorial for clarity
 >> https://youtu.be/ZxjgV1YaOcQ?si=to1RUt3Uut8xZd_3
+
+
+Environment variable should consists of
+- flutter\bin
+- AppData\Local\Android/SDK
+- Java\jdk-24\bin
 
 
 
